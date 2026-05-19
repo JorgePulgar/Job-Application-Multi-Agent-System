@@ -1,5 +1,6 @@
 """Pydantic models package."""
 
+from src.models.job_offer import JobOffer, Modalidad
 from src.models.user_profile import (
     Certification,
     Education,
@@ -13,7 +14,9 @@ __all__ = [
     "Certification",
     "Education",
     "Experience",
+    "JobOffer",
     "LocationPreference",
+    "Modalidad",
     "Modality",
     "UserProfile",
 ]
