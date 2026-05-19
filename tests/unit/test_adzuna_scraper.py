@@ -5,12 +5,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import httpx
 import pytest
 import respx
-import httpx
 
 from src.agents.job_scraper.adzuna import AdzunaScraper, _infer_modalidad, _parse_result
-from src.exceptions import MissingCredentialsError, ScraperError
+from src.exceptions import MissingCredentialsError
 from src.models.job_offer import Modalidad
 from src.models.user_profile import UserProfile
 

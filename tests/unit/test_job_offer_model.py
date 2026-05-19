@@ -8,7 +8,6 @@ import pytest
 
 from src.models.job_offer import JobOffer, Modalidad, _normalize
 
-
 # ---------------------------------------------------------------------------
 # Normalisation helper
 # ---------------------------------------------------------------------------
@@ -18,10 +17,10 @@ from src.models.job_offer import JobOffer, Modalidad, _normalize
     "raw, expected",
     [
         ("ML Engineer", "ml engineer"),
-        ("Málaga", "malaga"),           # accent stripped via NFKD
+        ("Málaga", "malaga"),  # accent stripped via NFKD
         ("  hello   world  ", "hello world"),  # whitespace collapsed
-        ("hello, world!", "hello world"),      # punctuation stripped
-        ("Ñoño", "nono"),              # ñ -> n via NFKD
+        ("hello, world!", "hello world"),  # punctuation stripped
+        ("Ñoño", "nono"),  # ñ -> n via NFKD
     ],
 )
 def test_normalize(raw: str, expected: str) -> None:

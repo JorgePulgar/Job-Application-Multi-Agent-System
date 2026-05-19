@@ -7,9 +7,6 @@ import yaml
 from pydantic import ValidationError
 
 from src.models.user_profile import (
-    Certification,
-    Education,
-    Experience,
     LocationPreference,
     Modality,
     UserProfile,
@@ -55,9 +52,7 @@ FULL_VALID: dict[str, object] = {
             "end_date": "2020",
         }
     ],
-    "certifications": [
-        {"name": "AWS ML Specialty", "issuer": "Amazon", "date": "2023-05"}
-    ],
+    "certifications": [{"name": "AWS ML Specialty", "issuer": "Amazon", "date": "2023-05"}],
 }
 
 
@@ -104,12 +99,12 @@ def test_from_yaml_missing_file(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "bad_username",
     [
-        "J",           # too short
-        "a" * 33,      # too long
-        "Jorge",       # uppercase
-        "jo-rge",      # hyphen not allowed
-        "jo rge",      # space not allowed
-        "1",           # single char
+        "J",  # too short
+        "a" * 33,  # too long
+        "Jorge",  # uppercase
+        "jo-rge",  # hyphen not allowed
+        "jo rge",  # space not allowed
+        "1",  # single char
     ],
 )
 def test_invalid_username(bad_username: str) -> None:

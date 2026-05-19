@@ -4,17 +4,15 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
-import respx
 import httpx
+import pytest
 
 from src.agents.job_scraper.base import BaseScraper
 from src.models.job_offer import JobOffer
 from src.models.user_profile import UserProfile
 from src.services.http import is_allowed, make_http_client
-
 
 # ---------------------------------------------------------------------------
 # Concrete stub for testing
@@ -123,6 +121,7 @@ def test_is_allowed_permits_when_robots_allows(tmp_path: Any) -> None:
     robots_txt = "User-agent: *\nAllow: /\n"
     with patch("src.services.http._fetch_robots") as mock_fetch:
         import urllib.robotparser
+
         parser = urllib.robotparser.RobotFileParser()
         parser.parse(robots_txt.splitlines())
         mock_fetch.return_value = parser
@@ -133,6 +132,7 @@ def test_is_allowed_blocks_when_robots_disallows() -> None:
     robots_txt = "User-agent: *\nDisallow: /\n"
     with patch("src.services.http._fetch_robots") as mock_fetch:
         import urllib.robotparser
+
         parser = urllib.robotparser.RobotFileParser()
         parser.parse(robots_txt.splitlines())
         mock_fetch.return_value = parser
