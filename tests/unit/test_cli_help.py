@@ -75,7 +75,6 @@ def test_global_options_present(option: str) -> None:
 @pytest.mark.parametrize(
     "args",
     [
-        ["scrape", "--user", "jorge"],
         ["filter", "--user", "jorge"],
         ["research-companies", "--user", "jorge"],
         ["evaluate", "--user", "jorge"],

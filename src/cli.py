@@ -5,6 +5,7 @@ Run with:  python -m src.cli --help
 
 from __future__ import annotations
 
+import asyncio
 import sys
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from alembic.config import Config as AlembicConfig
 
 from alembic import command as alembic_command
 from src.services.profiles import load_profile, upsert_user_row
+from src.services.scrape_runner import ALL_PLATFORMS, ScrapeRunSummary, run_scrape
 
 # ---------------------------------------------------------------------------
 # Shared context object passed to every subcommand via @click.pass_obj
@@ -123,16 +125,47 @@ def db_migrate() -> None:
 
 
 # ---------------------------------------------------------------------------
-# scrape (stub — Phase 2)
+# scrape (Phase 2)
 # ---------------------------------------------------------------------------
 
 
 @cli.command()
 @click.option("--user", required=True, help="Username to scrape offers for.")
+@click.option(
+    "--platforms",
+    default=",".join(ALL_PLATFORMS),
+    show_default=True,
+    help=f"Comma-separated platforms to scrape. Choices: {', '.join(ALL_PLATFORMS)}.",
+)
 @click.pass_obj
-def scrape(obj: AppContext, user: str) -> None:
-    """Scrape job offers from all configured platforms for a user."""
-    click.echo("not implemented (phase 2)")
+def scrape(obj: AppContext, user: str, platforms: str) -> None:
+    """Scrape job offers from configured platforms and save new ones to the DB."""
+    selected = tuple(p.strip() for p in platforms.split(",") if p.strip() in set(ALL_PLATFORMS))
+    if not selected:
+        click.echo(
+            f"No valid platforms in '{platforms}'. Choices: {', '.join(ALL_PLATFORMS)}",
+            err=True,
+        )
+        sys.exit(1)
+
+    profile = load_profile(user)
+    summary: ScrapeRunSummary = asyncio.run(
+        run_scrape(profile, platforms=selected, dry_run=obj.dry_run)
+    )
+
+    click.echo("\n=== Scrape Summary ===")
+    for platform, count in summary.per_platform.items():
+        if platform in summary.errors:
+            click.echo(f"  {platform}: ERROR — {summary.errors[platform][:80]}")
+        else:
+            click.echo(f"  {platform}: {count} raw offers")
+    click.echo(f"  Dedup dropped:  {summary.dedup_dropped}")
+    if summary.dry_run:
+        click.echo(f"  Would write:    {summary.written} (dry-run, no DB changes)")
+    else:
+        click.echo(f"  Already in DB:  {summary.existing_dropped}")
+        click.echo(f"  Written to DB:  {summary.written}")
+    click.echo("=====================\n")
 
 
 # ---------------------------------------------------------------------------
