@@ -1,0 +1,32 @@
+{
+  "totalCount": 3,
+  "jobs": [
+    {
+      "title": "ML Engineer Remoto",
+      "company": "Acme Fintech SL",
+      "location": "Madrid, Espana",
+      "salary": "45000-65000 EUR",
+      "snippet": "Buscamos ML Engineer para trabajar en remoto con PyTorch y FastAPI.",
+      "link": "https://jooble.org/desc/1001",
+      "updated": "2026-05-01T00:00:00+00:00"
+    },
+    {
+      "title": "Data Engineer",
+      "company": "DataCorp Barcelona",
+      "location": "Barcelona",
+      "salary": "2.500-3.500 EUR/mes",
+      "snippet": "Posicion hibrida. Spark, Airflow, dbt.",
+      "link": "https://jooble.org/desc/1002",
+      "updated": "2026-05-10T00:00:00+00:00"
+    },
+    {
+      "title": "AI Researcher",
+      "company": "University Lab",
+      "location": "Valencia",
+      "salary": null,
+      "snippet": "Investigacion presencial en modelos de lenguaje.",
+      "link": "https://jooble.org/desc/1003",
+      "updated": "2026-05-12T00:00:00+00:00"
+    }
+  ]
+}
