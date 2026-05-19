@@ -4,10 +4,10 @@
 Tighten the test net around the filter pipeline.
 
 ## Acceptance criteria
-- [ ] Unit test for `OfferFilter.evaluate`: relevant decision, discarded decision, red-flag short-circuit.
-- [ ] Integration test for the CLI command using mocked LLM.
-- [ ] Test that retries fire on a synthetic 429 from the LLM client (using the wrapper's retry).
-- [ ] All tests run in < 5s and require no network.
+- [x] Unit test for `OfferFilter.evaluate`: relevant decision, discarded decision, red-flag short-circuit.
+- [x] Integration test for the CLI command using mocked LLM.
+- [x] Test that retries fire on a synthetic 429 from the LLM client (using the wrapper's retry).
+- [x] All tests run in < 5s and require no network.
 
 ## Files to create / modify
 - `tests/unit/test_offer_filter.py` (extend)

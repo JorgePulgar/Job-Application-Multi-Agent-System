@@ -4,11 +4,11 @@
 The actual prompt used by `OfferFilter`. Spanish, with few-shot examples covering edge cases.
 
 ## Acceptance criteria
-- [ ] `src/prompts/offer_filter.system.md` — system prompt explaining the task, decision rules, and that the response MUST be JSON matching the `FilterDecision` schema. Spanish.
-- [ ] `src/prompts/offer_filter.user.md` — user template with `{{titulo}}`, `{{empresa}}`, `{{ubicacion}}`, `{{modalidad}}`, `{{descripcion}}`, `{{target_roles}}`, `{{target_sectors}}`, `{{red_flags}}`, `{{location_preference}}`.
-- [ ] Few-shot examples (3-5) covering: clear relevant, clear discard, ambiguous senior-level for a junior profile, body-shopping consultancy, location mismatch.
-- [ ] No prohibited words appear in the prompt (consistency).
-- [ ] Prompt is loaded via `prompt_loader.load("offer_filter")`, not hardcoded.
+- [x] `src/prompts/offer_filter.system.md` — system prompt explaining the task, decision rules, and that the response MUST be JSON matching the `FilterDecision` schema. Spanish.
+- [x] `src/prompts/offer_filter.user.md` — user template with `{{titulo}}`, `{{empresa}}`, `{{ubicacion}}`, `{{modalidad}}`, `{{descripcion}}`, `{{target_roles}}`, `{{target_sectors}}`, `{{red_flags}}`, `{{location_preference}}`.
+- [x] Few-shot examples (3-5) covering: clear relevant, clear discard, ambiguous senior-level for a junior profile, body-shopping consultancy, location mismatch.
+- [x] No prohibited words appear in the prompt (consistency).
+- [x] Prompt is loaded via `prompt_loader.load("offer_filter")`, not hardcoded.
 
 ## Files to create / modify
 - `src/prompts/offer_filter.system.md`

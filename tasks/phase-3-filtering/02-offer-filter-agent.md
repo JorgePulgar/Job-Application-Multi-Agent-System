@@ -4,12 +4,12 @@
 For every `new` offer, decide `relevant | discarded` and write a short reason if discarded. Uses `gpt-4o-mini` for cost reasons.
 
 ## Acceptance criteria
-- [ ] `src/agents/offer_filter.py` implements `class OfferFilter` with `async def evaluate(self, offer: db.Offer, profile: UserProfile) -> FilterDecision`.
-- [ ] `FilterDecision` Pydantic model: `relevant: bool`, `razon_descarte: Optional[str]` (≤ 200 chars).
-- [ ] Uses structured outputs (`response_format=FilterDecision`).
-- [ ] Pre-LLM cheap pass: if any `profile.red_flags` substring matches the offer's `descripcion` (case-insensitive), discard immediately without an LLM call.
-- [ ] Updates the offer row: `estado = 'relevant'` or `'discarded'`, set `razon_descarte` if discarded.
-- [ ] Batched: caller can pass a list and the agent processes them sequentially (no concurrency from inside; orchestrator decides parallelism).
+- [x] `src/agents/offer_filter.py` implements `class OfferFilter` with `async def evaluate(self, offer: db.Offer, profile: UserProfile) -> FilterDecision`.
+- [x] `FilterDecision` Pydantic model: `relevant: bool`, `razon_descarte: Optional[str]` (≤ 200 chars).
+- [x] Uses structured outputs (`response_format=FilterDecision`).
+- [x] Pre-LLM cheap pass: if any `profile.red_flags` substring matches the offer's `descripcion` (case-insensitive), discard immediately without an LLM call.
+- [x] Updates the offer row: `estado = 'relevant'` or `'discarded'`, set `razon_descarte` if discarded.
+- [x] Batched: caller can pass a list and the agent processes them sequentially (no concurrency from inside; orchestrator decides parallelism).
 
 ## Files to create / modify
 - `src/agents/offer_filter.py`
