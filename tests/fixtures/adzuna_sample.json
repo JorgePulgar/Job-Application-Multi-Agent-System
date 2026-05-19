@@ -1,0 +1,44 @@
+{
+  "count": 3,
+  "results": [
+    {
+      "id": "1001",
+      "title": "ML Engineer (Remoto)",
+      "company": {"display_name": "Acme Fintech SL"},
+      "location": {
+        "area": ["Espana", "Comunidad de Madrid", "Madrid"]
+      },
+      "salary_min": 45000,
+      "salary_max": 65000,
+      "description": "Buscamos un ML Engineer para trabajar en remoto en proyectos de NLP.",
+      "redirect_url": "https://www.adzuna.es/jobs/details/1001",
+      "created": "2026-05-01T10:00:00Z"
+    },
+    {
+      "id": "1002",
+      "title": "Data Engineer",
+      "company": {"display_name": "DataCorp Barcelona"},
+      "location": {
+        "area": ["Espana", "Cataluna", "Barcelona"]
+      },
+      "salary_min": 40000,
+      "salary_max": null,
+      "description": "Posicion hibrida para Data Engineer con experiencia en Spark y Airflow.",
+      "redirect_url": "https://www.adzuna.es/jobs/details/1002",
+      "created": "2026-05-10T09:30:00Z"
+    },
+    {
+      "id": "1003",
+      "title": "Senior AI Engineer",
+      "company": {"display_name": "TechStartup SL"},
+      "location": {
+        "area": ["Espana", "Pais Vasco", "Bilbao"]
+      },
+      "salary_min": null,
+      "salary_max": null,
+      "description": "Rol presencial para desarrollar soluciones de IA generativa.",
+      "redirect_url": "https://www.adzuna.es/jobs/details/1003",
+      "created": "2026-05-15T14:00:00Z"
+    }
+  ]
+}
