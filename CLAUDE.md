@@ -178,7 +178,8 @@ job-agent/
 - Work **phase by phase, task by task**, in the order defined in `tasks/`.
 - **One git commit per task.** Format: `feat(phase-N): <task name>` (or `fix`, `test`, `docs`, `chore`).
 - Before starting each task, **read its file and restate the acceptance criteria**.
-- After finishing each task, **STOP and tell the user what to verify** before continuing.
+- After finishing each task, **mark every acceptance-criteria checkbox as `- [x]`** in the task file, then **STOP and tell the user what to verify** before continuing.
+- At the start of each session, **check which task files still have `- [ ]` checkboxes** to determine where to resume — do not rely on memory alone.
 - Never skip or combine tasks without explicit approval.
 - **At the end of Phase 10, STOP** and wait for explicit approval before Phase 11.
 
