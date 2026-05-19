@@ -1,1 +1,29 @@
 /.claude/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Type checking / linting / testing caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Runtime data
+data/state.db
+data/drafts/
+
+# User configs (allow examples only)
+config/users/*.yaml
+!config/users/*.example
+
+# Env
+.env
+
+# Node / Next.js
+node_modules/
+.next/
