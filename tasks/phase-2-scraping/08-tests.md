@@ -4,10 +4,10 @@
 Wrap up Phase 2 with at least one end-to-end test that exercises the full scrape → dedup → DB-write path with all scrapers mocked.
 
 ## Acceptance criteria
-- [ ] `tests/integration/test_scrape_pipeline.py` mocks Adzuna, Jooble, and WTTJ to return overlapping fixture offers.
-- [ ] Asserts that after a scrape run: dups are collapsed, DB rows have `estado = 'new'`, `hash_unico` is unique.
-- [ ] A second run of the same fixtures inserts zero new rows.
-- [ ] Coverage check (informational, not gated): scraper modules >= 70%.
+- [x] `tests/integration/test_scrape_pipeline.py` mocks Adzuna, Jooble, and WTTJ to return overlapping fixture offers.
+- [x] Asserts that after a scrape run: dups are collapsed, DB rows have `estado = 'new'`, `hash_unico` is unique.
+- [x] A second run of the same fixtures inserts zero new rows.
+- [x] Coverage check (informational, not gated): scraper modules >= 70%.
 
 ## Files to create / modify
 - `tests/integration/test_scrape_pipeline.py`

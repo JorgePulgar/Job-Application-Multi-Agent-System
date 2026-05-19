@@ -4,11 +4,11 @@
 Detect near-duplicate offers within a single scrape run and across the existing DB to avoid wasting LLM tokens on the same job twice.
 
 ## Acceptance criteria
-- [ ] `src/services/dedup.py` exposes:
+- [x] `src/services/dedup.py` exposes:
   - `dedup_within_run(offers: list[JobOffer]) -> list[JobOffer]` — uses `hash_unico` for exact dedup, then `rapidfuzz.fuzz.WRatio` on `titulo + empresa` with a configurable threshold (default 92) for near-dups.
   - `filter_existing(offers: list[JobOffer], session) -> list[JobOffer]` — drops offers whose `hash_unico` is already in the DB for that user.
-- [ ] Logs how many were dropped at each stage (without dumping all titles).
-- [ ] Pure functions where possible; the DB-aware helper is the only one that needs a session.
+- [x] Logs how many were dropped at each stage (without dumping all titles).
+- [x] Pure functions where possible; the DB-aware helper is the only one that needs a session.
 
 ## Files to create / modify
 - `src/services/dedup.py`

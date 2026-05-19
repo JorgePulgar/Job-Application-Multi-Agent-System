@@ -4,7 +4,7 @@
 A single `click` CLI with the command groups that subsequent phases will fill in. Each subcommand is a stub that prints "not implemented yet" but is wired up so the help tree is complete.
 
 ## Acceptance criteria
-- [ ] `python -m src.cli --help` lists all v1 command groups:
+- [x] `python -m src.cli --help` lists all v1 command groups:
   - `profile load --user <username>` (real, from Task 05)
   - `scrape --user <username>` (stub)
   - `filter --user <username>` (stub)
@@ -13,9 +13,9 @@ A single `click` CLI with the command groups that subsequent phases will fill in
   - `write-drafts --user <username>` (stub)
   - `orchestrator run --user <username>` / `--all-users` (stub)
   - `db init`, `db migrate` (real wrappers around Alembic)
-- [ ] CLI module structure: `src/cli.py` is the entry point, subcommands live in `src/cli/<group>.py` if useful, otherwise inline.
-- [ ] Global options: `--log-level`, `--config-path`, `--dry-run`.
-- [ ] Each stub prints `not implemented (phase N task M)` so future-Claude knows where to fill in.
+- [x] CLI module structure: `src/cli.py` is the entry point, subcommands live in `src/cli/<group>.py` if useful, otherwise inline.
+- [x] Global options: `--log-level`, `--config-path`, `--dry-run`.
+- [x] Each stub prints `not implemented (phase N task M)` so future-Claude knows where to fill in.
 
 ## Files to create / modify
 - `src/cli.py`

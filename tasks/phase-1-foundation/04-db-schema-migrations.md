@@ -4,8 +4,8 @@
 Implement the v1 SQLAlchemy 2.x declarative models and the initial Alembic migration. Phase 11 tables are NOT included here (separate migration).
 
 ## Acceptance criteria
-- [ ] `src/db/base.py` exposes `Base = DeclarativeBase` and `get_session()` (sync session factory for SQLite at `data/state.db`).
-- [ ] `src/db/models.py` declares the following tables exactly as described in CLAUDE.md §6:
+- [x] `src/db/base.py` exposes `Base = DeclarativeBase` and `get_session()` (sync session factory for SQLite at `data/state.db`).
+- [x] `src/db/models.py` declares the following tables exactly as described in CLAUDE.md §6:
   - `users`
   - `companies`
   - `offers` (with `estado` enum and unique `hash_unico`)
@@ -13,11 +13,11 @@ Implement the v1 SQLAlchemy 2.x declarative models and the initial Alembic migra
   - `drafts`
   - `applications`
   - `run_logs`
-- [ ] All FK relationships, indexes (on `offers.user_id`, `offers.estado`, `offers.fecha_detectada`), and JSON columns set up correctly.
-- [ ] Enums defined in `src/db/enums.py` (`OfferEstado`, `Recomendacion`, `MetodoEnvio`, `TipoRespuesta`).
-- [ ] `alembic.ini` and `alembic/` initialized; first migration auto-generated and reviewed (no spurious diffs).
-- [ ] `alembic upgrade head` creates `data/state.db` cleanly from empty.
-- [ ] Smoke unit test inserts a user + offer + evaluation + draft and reads them back.
+- [x] All FK relationships, indexes (on `offers.user_id`, `offers.estado`, `offers.fecha_detectada`), and JSON columns set up correctly.
+- [x] Enums defined in `src/db/enums.py` (`OfferEstado`, `Recomendacion`, `MetodoEnvio`, `TipoRespuesta`).
+- [x] `alembic.ini` and `alembic/` initialized; first migration auto-generated and reviewed (no spurious diffs).
+- [x] `alembic upgrade head` creates `data/state.db` cleanly from empty.
+- [x] Smoke unit test inserts a user + offer + evaluation + draft and reads them back.
 
 ## Files to create / modify
 - `src/db/__init__.py`

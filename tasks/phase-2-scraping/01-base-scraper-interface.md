@@ -4,14 +4,14 @@
 Define the abstract interface every job scraper must implement, plus shared utilities (rate limiting, user-agent rotation, httpx client builder).
 
 ## Acceptance criteria
-- [ ] `src/agents/job_scraper/base.py` declares `class BaseScraper(ABC)` with:
+- [x] `src/agents/job_scraper/base.py` declares `class BaseScraper(ABC)` with:
   - `name: str` (class attribute)
   - `async def search(self, profile: UserProfile) -> list[JobOffer]` (abstract)
   - `async def __aenter__` / `__aexit__` for managing httpx clients
-- [ ] Built-in rate limiting via `asyncio.Semaphore` (configurable, default 2 concurrent requests).
-- [ ] Shared `make_http_client()` factory in `src/services/http.py` returns a configured `httpx.AsyncClient` (timeout, retries via `httpx.HTTPTransport`, polite UA string).
-- [ ] All scrapers respect `robots.txt` — helper `is_allowed(url: str, ua: str) -> bool` in `src/services/http.py`.
-- [ ] No HTTP calls outside `src/services/http.py` or, for API-specific clients, inside scrapers that use the shared client factory.
+- [x] Built-in rate limiting via `asyncio.Semaphore` (configurable, default 2 concurrent requests).
+- [x] Shared `make_http_client()` factory in `src/services/http.py` returns a configured `httpx.AsyncClient` (timeout, retries via `httpx.HTTPTransport`, polite UA string).
+- [x] All scrapers respect `robots.txt` — helper `is_allowed(url: str, ua: str) -> bool` in `src/services/http.py`.
+- [x] No HTTP calls outside `src/services/http.py` or, for API-specific clients, inside scrapers that use the shared client factory.
 
 ## Files to create / modify
 - `src/agents/job_scraper/__init__.py`
