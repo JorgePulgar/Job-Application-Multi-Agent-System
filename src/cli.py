@@ -11,8 +11,12 @@ from pathlib import Path
 
 import click
 from alembic.config import Config as AlembicConfig
+from sqlalchemy import select
 
 from alembic import command as alembic_command
+from src.agents.offer_filter import OfferFilter
+from src.db import Offer, OfferEstado, get_session
+from src.services.azure_openai import AzureOpenAIClient
 from src.services.profiles import load_profile, upsert_user_row
 from src.services.scrape_runner import ALL_PLATFORMS, ScrapeRunSummary, run_scrape
 
@@ -169,16 +173,90 @@ def scrape(obj: AppContext, user: str, platforms: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# filter (stub — Phase 3)
+# filter (Phase 3)
 # ---------------------------------------------------------------------------
+
+
+async def _run_filter(
+    obj: AppContext,
+    username: str,
+    *,
+    limit: int | None,
+    dry_run: bool,
+) -> None:
+    user_profile = load_profile(username)
+    client = AzureOpenAIClient()
+    agent = OfferFilter(client)
+
+    with get_session() as session:
+        # Resolve the user's DB id via the users table
+        from src.db.models import User
+
+        user_row = session.execute(
+            select(User).where(User.username == username)
+        ).scalar_one_or_none()
+        if user_row is None:
+            click.echo(
+                f"User '{username}' not found in DB. "
+                f"Run: python -m src.cli profile load --user {username}",
+                err=True,
+            )
+            return
+
+        q = (
+            select(Offer)
+            .where(Offer.user_id == user_row.id)
+            .where(Offer.estado == OfferEstado.nueva)
+            .order_by(Offer.fecha_detectada.desc())
+        )
+        if limit is not None:
+            q = q.limit(limit)
+
+        offers = list(session.execute(q).scalars().all())
+
+        if not offers:
+            click.echo("No hay ofertas nuevas para filtrar.")
+            return
+
+        click.echo(f"Filtrando {len(offers)} oferta(s) para '{username}'…")
+
+        summary = await agent.evaluate_batch(offers, user_profile)
+
+        if dry_run:
+            click.echo("\n=== Resultado (dry-run — sin cambios en DB) ===")
+            for offer, decision in zip(offers, summary.decisions, strict=True):
+                razon = decision.razon_descarte or ""
+                status = "RELEVANTE" if decision.relevant else f"DESCARTADA: {razon}"
+                click.echo(f"  [{offer.id}] {offer.titulo[:60]} → {status}")
+            # Roll back so no changes persist
+            session.rollback()
+        else:
+            click.echo("\n=== Resultado ===")
+            for offer, decision in zip(offers, summary.decisions, strict=True):
+                status = "RELEVANTE" if decision.relevant else "DESCARTADA"
+                click.echo(f"  [{offer.id}] {offer.titulo[:60]} → {status}")
+
+    click.echo("\n=== Resumen del filtrado ===")
+    click.echo(f"  Relevantes:          {summary.relevant_count}")
+    click.echo(f"  Descartadas:         {summary.discarded_count}")
+    click.echo(f"  Short-circuit flags: {summary.red_flag_count}")
+    click.echo("===========================\n")
 
 
 @cli.command("filter")
 @click.option("--user", required=True, help="Username whose new offers to filter.")
+@click.option("--limit", default=None, type=int, help="Process at most N offers (for testing).")
+@click.option(
+    "--dry-run",
+    "filter_dry_run",
+    is_flag=True,
+    default=False,
+    help="Print decisions without writing to the DB.",
+)
 @click.pass_obj
-def filter_offers(obj: AppContext, user: str) -> None:
-    """Run the offer-filter agent on unprocessed offers."""
-    click.echo("not implemented (phase 3)")
+def filter_offers(obj: AppContext, user: str, limit: int | None, filter_dry_run: bool) -> None:
+    """Run the offer-filter agent on all 'nueva' offers for the given user."""
+    asyncio.run(_run_filter(obj, user, limit=limit, dry_run=filter_dry_run or obj.dry_run))
 
 
 # ---------------------------------------------------------------------------

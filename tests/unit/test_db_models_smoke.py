@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from src.db.base import Base
 from src.db.enums import DraftEstado, OfferEstado, Recomendacion, RunEstado
-from src.db.models import Company, Draft, Evaluation, Offer, RunLog, User
+from src.db.models import Draft, Evaluation, Offer, RunLog, User
 
 
 @pytest.fixture(scope="module")
@@ -31,7 +31,15 @@ def session() -> Session:  # type: ignore[override]
 def test_all_tables_created(session: Session) -> None:
     inspector = inspect(session.bind)
     tables = set(inspector.get_table_names())
-    assert {"users", "companies", "offers", "evaluations", "drafts", "applications", "run_logs"} <= tables
+    assert {
+        "users",
+        "companies",
+        "offers",
+        "evaluations",
+        "drafts",
+        "applications",
+        "run_logs",
+    } <= tables
 
 
 def test_offers_indexes_exist(session: Session) -> None:
@@ -58,9 +66,7 @@ def test_insert_user(session: Session) -> None:
 
 
 def test_insert_offer(session: Session) -> None:
-    user = session.execute(
-        text("SELECT id FROM users WHERE username='jorge'")
-    ).fetchone()
+    user = session.execute(text("SELECT id FROM users WHERE username='jorge'")).fetchone()
     assert user is not None
     offer = Offer(
         user_id=user[0],
@@ -149,6 +155,6 @@ def test_hash_unico_unique_constraint(session: Session) -> None:
         fecha_detectada=datetime.datetime.now(datetime.UTC),
     )
     session.add(offer2)
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: B017 — SQLAlchemy raises IntegrityError subclass
         session.flush()
     session.rollback()

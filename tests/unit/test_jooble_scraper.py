@@ -46,18 +46,16 @@ def _profile(**overrides: object) -> UserProfile:
         ("30000-35000 EUR", 30000, 35000),
         ("30.000-35.000 EUR", 30000, 35000),
         ("45000-65000 EUR", 45000, 65000),
-        ("2.500-3.500 EUR/mes", 30000, 42000),   # ×12
-        ("2500 EUR/mes", 30000, None),             # monthly, single
-        ("35.000 EUR/ano", 35000, None),           # annual single
-        ("35000", 35000, None),                    # bare number
+        ("2.500-3.500 EUR/mes", 30000, 42000),  # x12
+        ("2500 EUR/mes", 30000, None),  # monthly, single
+        ("35.000 EUR/ano", 35000, None),  # annual single
+        ("35000", 35000, None),  # bare number
         (None, None, None),
         ("", None, None),
         ("Sin especificar", None, None),
     ],
 )
-def test_parse_salary(
-    raw: str | None, expected_min: int | None, expected_max: int | None
-) -> None:
+def test_parse_salary(raw: str | None, expected_min: int | None, expected_max: int | None) -> None:
     lo, hi = _parse_salary(raw)
     assert lo == expected_min
     assert hi == expected_max
@@ -202,6 +200,7 @@ async def test_search_respects_max_pages() -> None:
     async with JoobleScraper(api_key="test_key") as scraper:
         # Patch _MAX_PAGES to 2 for this test
         import src.agents.job_scraper.jooble as jooble_mod
+
         original = jooble_mod._MAX_PAGES
         jooble_mod._MAX_PAGES = 2
         try:
@@ -209,5 +208,5 @@ async def test_search_respects_max_pages() -> None:
         finally:
             jooble_mod._MAX_PAGES = original
 
-    # 3 offers per page × 2 pages, but all same hashes → deduplicated to 3
+    # 3 offers per page x 2 pages, but all same hashes -> deduplicated to 3
     assert len(offers) == 3

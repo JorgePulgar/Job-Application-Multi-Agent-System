@@ -101,6 +101,7 @@ class Offer(Base):
     )
     hash_unico: Mapped[str] = mapped_column(String(64), nullable=False)
     estado: Mapped[str] = mapped_column(String(32), nullable=False, default=OfferEstado.nueva)
+    razon_descarte: Mapped[str | None] = mapped_column(Text, nullable=True)
     raw_json: Mapped[Any] = mapped_column(JSON, nullable=True)
 
     user: Mapped[User] = relationship("User", back_populates="offers")

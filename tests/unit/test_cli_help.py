@@ -22,7 +22,16 @@ def test_root_help_exits_zero() -> None:
 
 @pytest.mark.parametrize(
     "command",
-    ["profile", "db", "scrape", "filter", "research-companies", "evaluate", "write-drafts", "orchestrator"],
+    [
+        "profile",
+        "db",
+        "scrape",
+        "filter",
+        "research-companies",
+        "evaluate",
+        "write-drafts",
+        "orchestrator",
+    ],
 )
 def test_root_help_lists_command(command: str) -> None:
     result = runner.invoke(cli, ["--help"])
@@ -75,7 +84,7 @@ def test_global_options_present(option: str) -> None:
 @pytest.mark.parametrize(
     "args",
     [
-        ["filter", "--user", "jorge"],
+        # ["filter", "--user", "jorge"],  # Phase 3: filter is now a real command
         ["research-companies", "--user", "jorge"],
         ["evaluate", "--user", "jorge"],
         ["write-drafts", "--user", "jorge"],
