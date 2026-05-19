@@ -1,0 +1,103 @@
+username: madalina
+nombre: Madalina Ionescu
+email: madalina@example.com
+phone: "+34 722 987 654"
+location: Barcelona, España
+
+target_roles:
+  - Data Scientist
+  - ML Engineer
+  - AI Research Engineer
+  - Analytics Engineer
+
+target_sectors:
+  - Salud / HealthTech
+  - Educación / EdTech
+  - Sostenibilidad / ClimaTech
+  - SaaS B2B
+
+tech_stack:
+  - Python
+  - R
+  - PyTorch
+  - Hugging Face Transformers
+  - Scikit-learn
+  - SQL
+  - Pandas
+  - Spark
+  - Docker
+  - dbt
+  - Tableau
+
+languages:
+  - "Español (C1)"
+  - "Inglés (C1)"
+  - "Rumano (nativo)"
+
+min_salary: 45000
+
+location_preference:
+  modality: remote
+  cities:
+    - Barcelona
+    - Madrid
+
+red_flags:
+  - sin posibilidad de trabajo en remoto
+  - empresa sin equipo de datos
+  - sin proyectos de NLP o visión artificial
+  - entorno sin diversidad ni inclusión
+
+cv_summary: |
+  Científica de datos con experiencia en NLP y modelos de lenguaje aplicados a sectores
+  de salud y educación. He liderado proyectos de fine-tuning de LLMs y desarrollo de
+  sistemas de recomendación que han impactado directamente en la experiencia del usuario.
+  Me apasiona el uso ético de la IA y busco equipos que compartan esta visión.
+
+experiences:
+  - company: HealthAI Barcelona SL
+    role: Data Scientist
+    start_date: "2021-09"
+    end_date: null
+    achievements:
+      - Fine-tuneé un modelo BERT para clasificación de informes clínicos con F1 de 0.91.
+      - Desarrollé un sistema de alerta temprana que redujo reingresos hospitalarios un 12 %.
+      - Presenté resultados ante stakeholders no técnicos logrando aprobación de inversión.
+    technologies:
+      - Python
+      - PyTorch
+      - Hugging Face Transformers
+      - SQL
+      - Docker
+
+  - company: EduTech Innova
+    role: Data Analyst
+    start_date: "2019-03"
+    end_date: "2021-08"
+    achievements:
+      - Diseñé dashboards de seguimiento de aprendizaje usados por 200 instituciones.
+      - Implementé modelos de churn prediction con precisión del 84 %.
+    technologies:
+      - Python
+      - R
+      - Tableau
+      - SQL
+      - Scikit-learn
+
+education:
+  - institution: Universitat Politècnica de Catalunya
+    degree: Máster en Inteligencia Artificial
+    start_date: "2019"
+    end_date: "2021"
+  - institution: Universidad de Bucarest
+    degree: Grado en Matemáticas
+    start_date: "2015"
+    end_date: "2019"
+
+certifications:
+  - name: Deep Learning Specialization
+    issuer: Coursera / DeepLearning.AI
+    date: "2022-03"
+  - name: Hugging Face NLP Course
+    issuer: Hugging Face
+    date: "2023-07"

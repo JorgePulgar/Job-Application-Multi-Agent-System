@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Generator
 from pathlib import Path
 
@@ -24,8 +25,9 @@ class Base(DeclarativeBase):
     """Shared declarative base for all ORM models."""
 
 
+@contextlib.contextmanager
 def get_session() -> Generator[Session, None, None]:
-    """Yield a SQLAlchemy session and close it when done.
+    """Context manager that yields a SQLAlchemy session and commits on exit.
 
     Yields:
         An open ``Session`` bound to the application SQLite database.

@@ -1,0 +1,101 @@
+username: jorge
+nombre: Jorge Pulgar
+email: jorge@example.com
+phone: "+34 612 345 678"
+location: Madrid, España
+
+target_roles:
+  - ML Engineer
+  - Data Engineer
+  - AI Engineer
+  - Backend Engineer (Python)
+
+target_sectors:
+  - Fintech
+  - Salud / HealthTech
+  - Retail / eCommerce
+  - SaaS B2B
+
+tech_stack:
+  - Python
+  - PyTorch
+  - TensorFlow
+  - Scikit-learn
+  - SQL
+  - Spark
+  - Airflow
+  - Docker
+  - Kubernetes
+  - FastAPI
+  - PostgreSQL
+  - dbt
+
+languages:
+  - "Español (nativo)"
+  - "Inglés (C1)"
+
+min_salary: 50000
+
+location_preference:
+  modality: hybrid
+  cities:
+    - Madrid
+    - Barcelona
+
+red_flags:
+  - sin trabajo en remoto ni híbrido
+  - empresa sin cultura de datos
+  - stack puramente legacy sin modernización
+  - solo junior / sin posibilidad de crecimiento
+
+cv_summary: |
+  Ingeniero de software con más de 5 años de experiencia en proyectos de machine learning
+  e ingeniería de datos. He diseñado y desplegado pipelines de ML en producción para
+  sectores de fintech y retail, logrando reducciones de latencia del 30 % y mejoras de
+  precisión significativas. Busco un entorno donde los datos sean un activo estratégico
+  y pueda aportar tanto en modelado como en arquitectura.
+
+experiences:
+  - company: Acme Fintech SL
+    role: ML Engineer
+    start_date: "2022-01"
+    end_date: null
+    achievements:
+      - Rediseñé el pipeline de scoring crediticio reduciendo falsos positivos un 18 %.
+      - Migré modelos de batch a serving en tiempo real con latencia p99 < 80 ms.
+      - Lideré la adopción de MLflow para experimentos reproducibles en el equipo.
+    technologies:
+      - Python
+      - PyTorch
+      - FastAPI
+      - Kubernetes
+      - MLflow
+      - PostgreSQL
+
+  - company: DataRetail Corp
+    role: Data Engineer
+    start_date: "2019-06"
+    end_date: "2021-12"
+    achievements:
+      - Construí un lago de datos en GCS procesando 500 GB/día con Spark y Airflow.
+      - Reduje el tiempo de ingesta de datos de 4 horas a 45 minutos.
+    technologies:
+      - Python
+      - Spark
+      - Airflow
+      - dbt
+      - BigQuery
+
+education:
+  - institution: Universidad Politécnica de Madrid
+    degree: Grado en Ingeniería Informática
+    start_date: "2015"
+    end_date: "2019"
+
+certifications:
+  - name: AWS Certified Machine Learning – Specialty
+    issuer: Amazon Web Services
+    date: "2023-04"
+  - name: Professional Data Engineer
+    issuer: Google Cloud
+    date: "2022-11"
