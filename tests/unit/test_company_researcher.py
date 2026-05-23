@@ -225,7 +225,7 @@ async def test_research_expira_en_is_30_days_out() -> None:
     client.chat = AsyncMock(return_value=_make_chat_result(_make_raw_output()))
     session = _make_session(existing_company=None)
 
-    before = datetime.datetime.now(datetime.UTC)
+    before = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
     with (
         patch("src.agents.company_researcher.search_web", return_value=[]),
@@ -235,7 +235,7 @@ async def test_research_expira_en_is_30_days_out() -> None:
         agent._system_prompt = "system"
         await agent.research("Acme Corp")
 
-    after = datetime.datetime.now(datetime.UTC)
+    after = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
     added = session.add.call_args[0][0]
 
     expected_low = before + datetime.timedelta(days=30)
@@ -256,7 +256,9 @@ async def test_research_updates_existing_company_row() -> None:
     existing = MagicMock()
     existing.nombre = "Acme Corp"
     # expired so cache is bypassed and the update path is exercised
-    existing.expira_en = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=1)
+    existing.expira_en = datetime.datetime.now(datetime.UTC).replace(
+        tzinfo=None
+    ) - datetime.timedelta(days=1)
     session = _make_session(existing_company=existing)
 
     with (
@@ -384,9 +386,8 @@ def _make_cached_company(*, days_until_expiry: int = 10) -> MagicMock:
         fuentes=[],
     )
     company = MagicMock()
-    company.expira_en = datetime.datetime.now(datetime.UTC) + datetime.timedelta(
-        days=days_until_expiry
-    )
+    now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+    company.expira_en = now + datetime.timedelta(days=days_until_expiry)
     company.dossier_json = dossier.model_dump(mode="json")
     return company
 
@@ -483,7 +484,7 @@ async def test_expira_en_uses_ttl_from_settings(patch_settings: MagicMock) -> No
     client.chat = AsyncMock(return_value=_make_chat_result(_make_raw_output()))
     session = _make_session(existing_company=None)
 
-    before = datetime.datetime.now(datetime.UTC)
+    before = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
     with (
         patch("src.agents.company_researcher.search_web", return_value=[]),
@@ -493,7 +494,7 @@ async def test_expira_en_uses_ttl_from_settings(patch_settings: MagicMock) -> No
         agent._system_prompt = "system"
         await agent.research("Acme Corp")
 
-    after = datetime.datetime.now(datetime.UTC)
+    after = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
     added = session.add.call_args[0][0]
 
     expected_low = before + datetime.timedelta(days=7)

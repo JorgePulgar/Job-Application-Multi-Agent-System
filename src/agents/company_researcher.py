@@ -133,7 +133,8 @@ class CompanyResearcher:
         """
         log = logger.bind(company=company_name)
         ttl_days = get_settings().company_research_ttl_days
-        now = datetime.datetime.now(datetime.UTC)
+        # SQLite strips timezone on round-trip → use naive UTC for all comparisons/storage.
+        now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
         # Single DB query — reused for both cache check and upsert.
         db_result = self._session.execute(select(Company).where(Company.nombre == company_name))

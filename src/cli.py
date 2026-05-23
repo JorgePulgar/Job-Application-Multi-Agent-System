@@ -270,7 +270,7 @@ def _is_cached(session: object, name: str) -> bool:
     from sqlalchemy.orm import Session as _Session
 
     assert isinstance(session, _Session)
-    now = datetime.datetime.now(datetime.UTC)
+    now = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
     row = session.execute(select(Company).where(Company.nombre == name)).scalar_one_or_none()
     return (
         row is not None
