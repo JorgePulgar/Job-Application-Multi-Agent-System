@@ -61,6 +61,12 @@ class Company(Base):
     sector: Mapped[str | None] = mapped_column(String(256), nullable=True)
     descripcion: Mapped[str | None] = mapped_column(Text, nullable=True)
     dossier_json: Mapped[Any] = mapped_column(JSON, nullable=True)
+    fecha_research: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    expira_en: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), default=_now, server_default=func.now()
     )
