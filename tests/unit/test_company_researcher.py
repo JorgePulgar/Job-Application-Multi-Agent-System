@@ -56,10 +56,9 @@ def _make_chat_result(parsed: _ResearchOutput) -> ChatResult:
     )
 
 
-def _make_session(existing_company: object = None) -> AsyncMock:
-    """Return a mock AsyncSession whose execute chain returns existing_company."""
-    session = AsyncMock()
-    session.add = MagicMock()  # add() is sync in SQLAlchemy
+def _make_session(existing_company: object = None) -> MagicMock:
+    """Return a mock sync Session whose execute chain returns existing_company."""
+    session = MagicMock()
     exec_result = MagicMock()
     exec_result.scalar_one_or_none.return_value = existing_company
     session.execute.return_value = exec_result
@@ -210,7 +209,7 @@ async def test_research_upserts_new_company_row() -> None:
         await agent.research("Acme Corp")
 
     session.add.assert_called_once()
-    session.flush.assert_awaited_once()
+    session.flush.assert_called_once()
 
     added = session.add.call_args[0][0]
     from src.db.models import Company
@@ -269,7 +268,7 @@ async def test_research_updates_existing_company_row() -> None:
         await agent.research("Acme Corp")
 
     session.add.assert_not_called()
-    session.flush.assert_awaited_once()
+    session.flush.assert_called_once()
     assert existing.sector == "fintech"
     assert existing.expira_en is not None
 

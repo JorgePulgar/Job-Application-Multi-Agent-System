@@ -8,7 +8,7 @@ import datetime
 import structlog
 from pydantic import BaseModel
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from src.config import get_settings
 from src.db.models import Company
@@ -103,7 +103,7 @@ class CompanyResearcher:
     never commits.
     """
 
-    def __init__(self, client: AzureOpenAIClient, session: AsyncSession) -> None:
+    def __init__(self, client: AzureOpenAIClient, session: Session) -> None:
         self._client = client
         self._session = session
         self._system_prompt: str | None = None
@@ -136,9 +136,7 @@ class CompanyResearcher:
         now = datetime.datetime.now(datetime.UTC)
 
         # Single DB query — reused for both cache check and upsert.
-        db_result = await self._session.execute(
-            select(Company).where(Company.nombre == company_name)
-        )
+        db_result = self._session.execute(select(Company).where(Company.nombre == company_name))
         existing: Company | None = db_result.scalar_one_or_none()
 
         # --- Cache check ---
@@ -207,9 +205,7 @@ class CompanyResearcher:
             fuentes=source_urls,  # type: ignore[arg-type]
         )
 
-        await self._upsert_company(
-            company_name, dossier, existing=existing, ttl_days=ttl_days, now=now
-        )
+        self._upsert_company(company_name, dossier, existing=existing, ttl_days=ttl_days, now=now)
 
         log.info(
             "company_research_done",
@@ -219,7 +215,7 @@ class CompanyResearcher:
         )
         return dossier
 
-    async def _upsert_company(
+    def _upsert_company(
         self,
         nombre: str,
         dossier: CompanyDossier,
@@ -260,4 +256,4 @@ class CompanyResearcher:
             existing.updated_at = now
             logger.debug("company_row_updated", nombre=nombre)
 
-        await self._session.flush()
+        self._session.flush()

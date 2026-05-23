@@ -85,7 +85,7 @@ def test_global_options_present(option: str) -> None:
     "args",
     [
         # ["filter", "--user", "jorge"],  # Phase 3: filter is now a real command
-        ["research-companies", "--user", "jorge"],
+        # ["research-companies", "--user", "jorge"],  # Phase 4: now a real command
         ["evaluate", "--user", "jorge"],
         ["write-drafts", "--user", "jorge"],
         ["orchestrator", "run", "--all-users"],

@@ -14,8 +14,10 @@ from alembic.config import Config as AlembicConfig
 from sqlalchemy import select
 
 from alembic import command as alembic_command
+from src.agents.company_researcher import CompanyResearcher
 from src.agents.offer_filter import OfferFilter
-from src.db import Offer, OfferEstado, get_session
+from src.db import Company, Offer, OfferEstado, get_session
+from src.db.models import User
 from src.services.azure_openai import AzureOpenAIClient
 from src.services.profiles import load_profile, upsert_user_row
 from src.services.scrape_runner import ALL_PLATFORMS, ScrapeRunSummary, run_scrape
@@ -189,9 +191,6 @@ async def _run_filter(
     agent = OfferFilter(client)
 
     with get_session() as session:
-        # Resolve the user's DB id via the users table
-        from src.db.models import User
-
         user_row = session.execute(
             select(User).where(User.username == username)
         ).scalar_one_or_none()
@@ -260,16 +259,134 @@ def filter_offers(obj: AppContext, user: str, limit: int | None, filter_dry_run:
 
 
 # ---------------------------------------------------------------------------
-# research-companies (stub — Phase 4)
+# research-companies (Phase 4)
 # ---------------------------------------------------------------------------
+
+
+def _is_cached(session: object, name: str) -> bool:
+    """Return True if a fresh dossier for *name* already exists in the DB."""
+    import datetime
+
+    from sqlalchemy.orm import Session as _Session
+
+    assert isinstance(session, _Session)
+    now = datetime.datetime.now(datetime.UTC)
+    row = session.execute(select(Company).where(Company.nombre == name)).scalar_one_or_none()
+    return (
+        row is not None
+        and row.expira_en is not None
+        and row.expira_en > now
+        and row.dossier_json is not None
+    )
+
+
+async def _run_research(
+    obj: AppContext,
+    username: str,
+    *,
+    force_refresh: bool,
+    limit: int | None,
+) -> None:
+    client = AzureOpenAIClient()
+
+    with get_session() as session:
+        user_row = session.execute(
+            select(User).where(User.username == username)
+        ).scalar_one_or_none()
+        if user_row is None:
+            click.echo(
+                f"User '{username}' not found in DB. "
+                f"Run: python -m src.cli profile load --user {username}",
+                err=True,
+            )
+            return
+
+        q = (
+            select(Offer)
+            .where(Offer.user_id == user_row.id)
+            .where(Offer.estado == OfferEstado.filtrada)
+            .where(Offer.company_id.is_(None))
+        )
+        if limit is not None:
+            q = q.limit(limit)
+
+        offers = list(session.execute(q).scalars().all())
+
+        if not offers:
+            click.echo("No hay ofertas filtradas sin empresa investigada.")
+            return
+
+        # Deduplicate company names, preserve insertion order.
+        seen_names: set[str] = set()
+        unique_names: list[str] = []
+        for o in offers:
+            if o.empresa not in seen_names:
+                seen_names.add(o.empresa)
+                unique_names.append(o.empresa)
+
+        click.echo(
+            f"Investigando {len(unique_names)} empresa(s) "
+            f"({len(offers)} oferta(s)) para '{username}'…"
+        )
+
+        agent = CompanyResearcher(client, session)
+        researched = 0
+        cache_hits = 0
+        errors = 0
+
+        for name in unique_names:
+            if obj.dry_run:
+                click.echo(f"  [dry-run] skip: {name}")
+                continue
+
+            was_cached = _is_cached(session, name) and not force_refresh
+
+            try:
+                dossier = await agent.research(name, force_refresh=force_refresh)
+            except Exception as exc:
+                click.echo(f"  ERROR researching '{name}': {exc}", err=True)
+                errors += 1
+                continue
+
+            if was_cached:
+                cache_hits += 1
+                click.echo(f"  CACHE: {name}")
+            else:
+                researched += 1
+                click.echo(f"  OK:    {name} ({dossier.sector}, {dossier.tamano})")
+
+            # Link all matching offers to the company row.
+            company_row = session.execute(
+                select(Company).where(Company.nombre == name)
+            ).scalar_one_or_none()
+            if company_row is not None:
+                for offer in offers:
+                    if offer.empresa == name and offer.company_id is None:
+                        offer.company_id = company_row.id
+                        offer.estado = OfferEstado.investigada
+
+        linked = sum(1 for o in offers if o.company_id is not None)
+        click.echo("\n=== Resumen de investigación ===")
+        click.echo(f"  Investigadas (nuevas): {researched}")
+        click.echo(f"  Cache hits:            {cache_hits}")
+        click.echo(f"  Errores:               {errors}")
+        click.echo(f"  Ofertas vinculadas:    {linked}")
+        click.echo("================================\n")
 
 
 @cli.command("research-companies")
 @click.option("--user", required=True, help="Username whose filtered offers to research.")
+@click.option(
+    "--force-refresh",
+    is_flag=True,
+    default=False,
+    help="Bypass the 30-day cache and re-research all companies.",
+)
+@click.option("--limit", default=None, type=int, help="Process at most N companies (for testing).")
 @click.pass_obj
-def research_companies(obj: AppContext, user: str) -> None:
-    """Run the company-researcher agent for all filtered offers."""
-    click.echo("not implemented (phase 4)")
+def research_companies(obj: AppContext, user: str, force_refresh: bool, limit: int | None) -> None:
+    """Research companies behind filtered offers and link them in the DB."""
+    asyncio.run(_run_research(obj, user, force_refresh=force_refresh, limit=limit))
 
 
 # ---------------------------------------------------------------------------
