@@ -4,9 +4,9 @@
 Close out Phase 5 with thorough unit and integration tests.
 
 ## Acceptance criteria
-- [ ] Unit tests for `ViabilityEvaluator` covering recommend / doubt / discard, missing company, salary-below-minimum.
-- [ ] Integration test for the CLI.
-- [ ] Verify state transitions and that `razon_descarte` is populated when recommendation is `descartar`.
+- [x] Unit tests for `ViabilityEvaluator` covering recommend / doubt / discard, missing company, salary-below-minimum.
+- [x] Integration test for the CLI.
+- [x] Verify state transitions and that `razon_descarte` is populated when recommendation is `descartar`.
 
 ## Files to create / modify
 - `tests/unit/test_viability_evaluator.py` (extend)

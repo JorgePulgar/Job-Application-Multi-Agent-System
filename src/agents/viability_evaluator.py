@@ -140,4 +140,6 @@ class ViabilityEvaluator:
         db_row: Evaluation = evaluation.to_db_row(offer_id=offer.id)
         self._session.add(db_row)
         offer.estado = OfferEstado.evaluada
+        if evaluation.recomendacion == "descartar":
+            offer.razon_descarte = evaluation.reasoning[:200]
         self._session.flush()

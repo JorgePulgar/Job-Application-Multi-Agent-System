@@ -389,3 +389,94 @@ async def test_evaluate_salary_fallback_when_absent() -> None:
         await agent.evaluate(offer, _make_company(), _make_profile())
 
     assert captured and captured[0] == "No especificado"
+
+
+# ---------------------------------------------------------------------------
+# razon_descarte population
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_evaluate_sets_razon_descarte_when_descartar() -> None:
+    evaluation = _make_evaluation(
+        score=10,
+        red_flags_match=["soporte"],
+        recomendacion="descartar",
+        reasoning="El rol no encaja en absoluto con el perfil del candidato.",
+    )
+    agent, _ = _make_agent(parsed=evaluation)
+    offer = _make_offer()
+
+    with patch("src.agents.viability_evaluator.prompt_loader"):
+        await agent.evaluate(offer, _make_company(), _make_profile())
+
+    assert offer.razon_descarte == "El rol no encaja en absoluto con el perfil del candidato."
+
+
+@pytest.mark.asyncio
+async def test_evaluate_does_not_set_razon_descarte_when_aplicar() -> None:
+    evaluation = _make_evaluation(recomendacion="aplicar")
+    agent, _ = _make_agent(parsed=evaluation)
+    offer = _make_offer()
+    offer.razon_descarte = None
+
+    with patch("src.agents.viability_evaluator.prompt_loader"):
+        await agent.evaluate(offer, _make_company(), _make_profile())
+
+    assert offer.razon_descarte is None
+
+
+@pytest.mark.asyncio
+async def test_evaluate_razon_descarte_truncated_to_200() -> None:
+    long_reason = "x" * 300
+    evaluation = _make_evaluation(
+        score=5,
+        red_flags_match=["soporte"],
+        recomendacion="descartar",
+        reasoning=long_reason,
+    )
+    agent, _ = _make_agent(parsed=evaluation)
+    offer = _make_offer()
+
+    with patch("src.agents.viability_evaluator.prompt_loader"):
+        await agent.evaluate(offer, _make_company(), _make_profile())
+
+    assert offer.razon_descarte is not None
+    assert len(offer.razon_descarte) == 200
+
+
+# ---------------------------------------------------------------------------
+# Salary below minimum — prompt receives correct value, LLM returns descartar
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_evaluate_salary_below_minimum_passed_to_prompt() -> None:
+    """Profile min_salary=50000; offer salary 30000 is passed through to prompt."""
+    evaluation = _make_evaluation(score=25, recomendacion="descartar", reasoning="Salario bajo.")
+    client = MagicMock()
+    client.chat = AsyncMock(return_value=_make_chat_result(evaluation))
+    session = _make_session()
+    agent = ViabilityEvaluator(client, session)
+    agent._system_prompt = "system"
+
+    offer = _make_offer(raw_json={"salary_min": 30000})
+
+    profile = _make_profile()
+    profile.min_salary = 50000
+
+    captured_salary: list[str] = []
+    captured_min: list[str] = []
+
+    def fake_load_user(name: str, **kwargs: str) -> str:
+        captured_salary.append(kwargs.get("salario", ""))
+        captured_min.append(kwargs.get("salario_minimo", ""))
+        return "user prompt"
+
+    with patch("src.agents.viability_evaluator.prompt_loader") as mock_loader:
+        mock_loader.load_user.side_effect = fake_load_user
+        result = await agent.evaluate(offer, _make_company(), profile)
+
+    assert captured_salary and captured_salary[0] == "30000"
+    assert captured_min and "50,000" in captured_min[0]
+    assert result.recomendacion == "descartar"
