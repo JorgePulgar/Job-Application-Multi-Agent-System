@@ -4,10 +4,10 @@
 Real CLI command running `CompanyResearcher` over the unique set of companies referenced by this user's `relevant` offers.
 
 ## Acceptance criteria
-- [ ] `python -m src.cli research-companies --user jorge` queries distinct company names from `offers` where `estado='relevant'` and `empresa_id` is null, researches each, links offers to the resulting `companies` row.
-- [ ] `--force-refresh` bypasses cache.
-- [ ] `--limit N` for testing.
-- [ ] Final summary: companies researched, cache hits, tokens used.
+- [x] `python -m src.cli research-companies --user jorge` queries distinct company names from `offers` where `estado='relevant'` and `empresa_id` is null, researches each, links offers to the resulting `companies` row.
+- [x] `--force-refresh` bypasses cache.
+- [x] `--limit N` for testing.
+- [x] Final summary: companies researched, cache hits, tokens used.
 
 ## Files to create / modify
 - `src/cli.py` (replace `research-companies` stub)

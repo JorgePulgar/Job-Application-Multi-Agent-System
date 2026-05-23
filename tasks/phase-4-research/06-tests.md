@@ -4,9 +4,9 @@
 Phase-closing test sweep for company research.
 
 ## Acceptance criteria
-- [ ] Unit tests for `CompanyResearcher.research` covering: fresh research, cache hit, expired cache, force refresh.
-- [ ] Integration test for the CLI.
-- [ ] Test verifies no PII slips into any logged structured fields.
+- [x] Unit tests for `CompanyResearcher.research` covering: fresh research, cache hit, expired cache, force refresh.
+- [x] Integration test for the CLI.
+- [x] Test verifies no PII slips into any logged structured fields.
 
 ## Files to create / modify
 - `tests/unit/test_company_researcher.py` (extend)
