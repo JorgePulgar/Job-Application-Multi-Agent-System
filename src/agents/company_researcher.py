@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.config import get_settings
 from src.db.models import Company
 from src.exceptions import JobAgentError
 from src.models.company import CompanyDossier, TamanoEmpresa
@@ -21,7 +22,6 @@ from src.services.web_search import search_web
 logger = structlog.get_logger(__name__)
 
 _RESULTS_PER_QUERY: int = 3
-_DEFAULT_TTL_DAYS: int = 30
 
 _SEARCH_TEMPLATES: list[str] = [
     '"{name}" empresa',
@@ -113,22 +113,55 @@ class CompanyResearcher:
             self._system_prompt = prompt_loader.load_system("company_researcher")
         return self._system_prompt
 
-    async def research(self, company_name: str) -> CompanyDossier:
-        """Research a company and persist the dossier to the ``companies`` table.
+    async def research(self, company_name: str, *, force_refresh: bool = False) -> CompanyDossier:
+        """Research a company, using a cached dossier when fresh enough.
 
-        Issues 5 concurrent web search queries, pipes the top results into gpt-4o,
-        and stores the structured dossier with a 30-day TTL.
+        Checks the ``companies`` table first.  If a non-expired row exists and
+        ``force_refresh`` is ``False``, returns the cached dossier without issuing
+        any web search or LLM call.  Otherwise runs the full pipeline and writes
+        the result back with a fresh TTL.
 
         Args:
             company_name: Company name as it appears in the job offer.
+            force_refresh: When ``True``, bypasses the cache and always re-researches.
 
         Returns:
-            Synthesised ``CompanyDossier``.
+            Synthesised ``CompanyDossier`` (cached or freshly generated).
 
         Raises:
             CompanyResearchError: If the LLM returns an unparseable response.
         """
         log = logger.bind(company=company_name)
+        ttl_days = get_settings().company_research_ttl_days
+        now = datetime.datetime.now(datetime.UTC)
+
+        # Single DB query — reused for both cache check and upsert.
+        db_result = await self._session.execute(
+            select(Company).where(Company.nombre == company_name)
+        )
+        existing: Company | None = db_result.scalar_one_or_none()
+
+        # --- Cache check ---
+        if not force_refresh and existing is not None:
+            if (
+                existing.expira_en is not None
+                and existing.expira_en > now
+                and existing.dossier_json is not None
+            ):
+                try:
+                    dossier = CompanyDossier.model_validate(existing.dossier_json)
+                    log.info("company_cache_hit", expires_at=existing.expira_en.isoformat())
+                    return dossier
+                except Exception as exc:
+                    log.warning("company_cache_invalid_dossier", error=str(exc))
+            else:
+                log.debug("company_cache_miss", reason="expired")
+        elif force_refresh:
+            log.debug("company_cache_bypass")
+        else:
+            log.debug("company_cache_miss", reason="not_found")
+
+        # --- Full research ---
         log.info("company_research_start")
 
         queries = [t.format(name=company_name) for t in _SEARCH_TEMPLATES]
@@ -174,7 +207,9 @@ class CompanyResearcher:
             fuentes=source_urls,  # type: ignore[arg-type]
         )
 
-        await self._upsert_company(company_name, dossier)
+        await self._upsert_company(
+            company_name, dossier, existing=existing, ttl_days=ttl_days, now=now
+        )
 
         log.info(
             "company_research_done",
@@ -184,22 +219,28 @@ class CompanyResearcher:
         )
         return dossier
 
-    async def _upsert_company(self, nombre: str, dossier: CompanyDossier) -> None:
+    async def _upsert_company(
+        self,
+        nombre: str,
+        dossier: CompanyDossier,
+        *,
+        existing: Company | None,
+        ttl_days: int,
+        now: datetime.datetime,
+    ) -> None:
         """Insert or update the companies row with the new dossier and TTL.
 
         Args:
             nombre: Company name used as the lookup key.
             dossier: Freshly researched dossier to persist.
+            existing: Pre-fetched ORM row, or ``None`` if the company is new.
+            ttl_days: Number of days until the dossier expires.
+            now: Current UTC timestamp (passed in to keep it consistent with caller).
         """
-        now = datetime.datetime.now(datetime.UTC)
-        expira_en = now + datetime.timedelta(days=_DEFAULT_TTL_DAYS)
-
-        result = await self._session.execute(select(Company).where(Company.nombre == nombre))
-        company = result.scalar_one_or_none()
-
+        expira_en = now + datetime.timedelta(days=ttl_days)
         dossier_dict = dossier.model_dump(mode="json")
 
-        if company is None:
+        if existing is None:
             company = Company(
                 nombre=nombre,
                 sector=dossier.sector,
@@ -211,12 +252,12 @@ class CompanyResearcher:
             self._session.add(company)
             logger.debug("company_row_created", nombre=nombre)
         else:
-            company.sector = dossier.sector
-            company.descripcion = dossier.descripcion
-            company.dossier_json = dossier_dict
-            company.fecha_research = now
-            company.expira_en = expira_en
-            company.updated_at = now
+            existing.sector = dossier.sector
+            existing.descripcion = dossier.descripcion
+            existing.dossier_json = dossier_dict
+            existing.fecha_research = now
+            existing.expira_en = expira_en
+            existing.updated_at = now
             logger.debug("company_row_updated", nombre=nombre)
 
         await self._session.flush()

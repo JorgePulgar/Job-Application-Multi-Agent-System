@@ -66,6 +66,22 @@ def _make_session(existing_company: object = None) -> AsyncMock:
     return session
 
 
+def _make_fake_settings(ttl_days: int = 30) -> MagicMock:
+    s = MagicMock()
+    s.company_research_ttl_days = ttl_days
+    return s
+
+
+@pytest.fixture(autouse=True)
+def patch_settings() -> object:
+    """Patch get_settings in the agent so tests don't need real env vars."""
+    with patch(
+        "src.agents.company_researcher.get_settings",
+        return_value=_make_fake_settings(ttl_days=30),
+    ) as m:
+        yield m
+
+
 # ---------------------------------------------------------------------------
 # _format_search_results
 # ---------------------------------------------------------------------------
@@ -240,6 +256,8 @@ async def test_research_updates_existing_company_row() -> None:
 
     existing = MagicMock()
     existing.nombre = "Acme Corp"
+    # expired so cache is bypassed and the update path is exercised
+    existing.expira_en = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=1)
     session = _make_session(existing_company=existing)
 
     with (
@@ -343,3 +361,142 @@ async def test_research_populates_fuentes_from_search_results() -> None:
         dossier = await agent.research("Acme Corp")
 
     assert any("source.example.com" in str(f) for f in dossier.fuentes)
+
+
+# ---------------------------------------------------------------------------
+# TTL cache — cache hit (no LLM call)
+# ---------------------------------------------------------------------------
+
+
+def _make_cached_company(*, days_until_expiry: int = 10) -> MagicMock:
+    """Return a mock Company row with a valid dossier and future expira_en."""
+    from src.models.company import CompanyDossier, TamanoEmpresa
+
+    dossier = CompanyDossier(
+        sector="saas",
+        tamano=TamanoEmpresa.pyme,
+        ubicacion_hq="Barcelona, España",
+        descripcion="Empresa SaaS de RR.HH.",
+        stack_tecnologico=["python"],
+        cultura_notas=[],
+        red_flags_detectadas=[],
+        productos_o_servicios=["HR Suite"],
+        equipo_ai_detectado=False,
+        fuentes=[],
+    )
+    company = MagicMock()
+    company.expira_en = datetime.datetime.now(datetime.UTC) + datetime.timedelta(
+        days=days_until_expiry
+    )
+    company.dossier_json = dossier.model_dump(mode="json")
+    return company
+
+
+@pytest.mark.asyncio
+async def test_cache_hit_skips_llm_and_search() -> None:
+    client = MagicMock()
+    client.chat = AsyncMock()
+    cached = _make_cached_company(days_until_expiry=10)
+    session = _make_session(existing_company=cached)
+
+    with patch("src.agents.company_researcher.search_web") as mock_sw:
+        agent = CompanyResearcher(client, session)
+        dossier = await agent.research("CachedCo")
+
+    client.chat.assert_not_called()
+    mock_sw.assert_not_called()
+    assert dossier.sector == "saas"
+
+
+@pytest.mark.asyncio
+async def test_cache_hit_returns_existing_dossier_fields() -> None:
+    client = MagicMock()
+    client.chat = AsyncMock()
+    cached = _make_cached_company(days_until_expiry=5)
+    session = _make_session(existing_company=cached)
+
+    with patch("src.agents.company_researcher.search_web"):
+        agent = CompanyResearcher(client, session)
+        dossier = await agent.research("CachedCo")
+
+    assert dossier.ubicacion_hq == "Barcelona, España"
+    assert dossier.tamano == TamanoEmpresa.pyme
+
+
+# ---------------------------------------------------------------------------
+# TTL cache — cache miss (expired)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_cache_expired_triggers_full_research() -> None:
+    client = MagicMock()
+    client.chat = AsyncMock(return_value=_make_chat_result(_make_raw_output()))
+
+    expired = _make_cached_company(days_until_expiry=-1)  # already expired
+    session = _make_session(existing_company=expired)
+
+    with (
+        patch("src.agents.company_researcher.search_web", return_value=[]),
+        patch("src.agents.company_researcher.prompt_loader"),
+    ):
+        agent = CompanyResearcher(client, session)
+        agent._system_prompt = "system"
+        await agent.research("OldCo")
+
+    client.chat.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# TTL cache — force_refresh bypasses cache
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_force_refresh_bypasses_valid_cache() -> None:
+    client = MagicMock()
+    client.chat = AsyncMock(return_value=_make_chat_result(_make_raw_output()))
+
+    cached = _make_cached_company(days_until_expiry=20)
+    session = _make_session(existing_company=cached)
+
+    with (
+        patch("src.agents.company_researcher.search_web", return_value=[]),
+        patch("src.agents.company_researcher.prompt_loader"),
+    ):
+        agent = CompanyResearcher(client, session)
+        agent._system_prompt = "system"
+        await agent.research("FreshCo", force_refresh=True)
+
+    client.chat.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# TTL cache — configurable TTL used when writing
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_expira_en_uses_ttl_from_settings(patch_settings: MagicMock) -> None:
+    patch_settings.return_value = _make_fake_settings(ttl_days=7)
+
+    client = MagicMock()
+    client.chat = AsyncMock(return_value=_make_chat_result(_make_raw_output()))
+    session = _make_session(existing_company=None)
+
+    before = datetime.datetime.now(datetime.UTC)
+
+    with (
+        patch("src.agents.company_researcher.search_web", return_value=[]),
+        patch("src.agents.company_researcher.prompt_loader"),
+    ):
+        agent = CompanyResearcher(client, session)
+        agent._system_prompt = "system"
+        await agent.research("Acme Corp")
+
+    after = datetime.datetime.now(datetime.UTC)
+    added = session.add.call_args[0][0]
+
+    expected_low = before + datetime.timedelta(days=7)
+    expected_high = after + datetime.timedelta(days=7)
+    assert expected_low <= added.expira_en <= expected_high

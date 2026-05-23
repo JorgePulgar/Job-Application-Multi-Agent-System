@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     telegram_bot_token: str = Field(..., description="Telegram bot token")
     telegram_chat_id: str = Field(..., description="Telegram chat ID for notifications")
 
+    # Company research TTL
+    company_research_ttl_days: int = Field(
+        default=30, description="Days before a cached company dossier is considered stale"
+    )
+
     # Logging
     log_json: bool = Field(
         default=False, description="Emit JSON logs (true in CI) instead of pretty console output"
