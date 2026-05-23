@@ -18,26 +18,20 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 uv sync --extra dev
 ```
 
-### 3. Install Playwright browser (required for the WTTJ scraper)
-
-```bash
-uv run playwright install chromium
-```
-
-### 4. Configure environment
+### 3. Configure environment
 
 ```bash
 cp .env.example .env
 # Fill in the required API keys — see .env.example for descriptions
 ```
 
-### 5. Initialise the database
+### 4. Initialise the database
 
 ```bash
 uv run python -m src.cli db init
 ```
 
-### 6. Load user profiles
+### 5. Load user profiles
 
 ```bash
 cp config/users/jorge.yaml.example config/users/jorge.yaml

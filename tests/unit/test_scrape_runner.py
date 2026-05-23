@@ -90,7 +90,6 @@ def patch_scrapers(monkeypatch: pytest.MonkeyPatch) -> None:
         {
             "adzuna": _make_scraper_class("adzuna", [_offer("ML Engineer", "Acme")]),
             "jooble": _make_scraper_class("jooble", [_offer("Data Engineer", "DataCorp")]),
-            "wttj": _make_scraper_class("wttj", [_offer("AI Researcher", "Uni Lab")]),
         },
     )
 
@@ -122,14 +121,14 @@ async def test_run_scrape_writes_offers_to_db(
 ) -> None:
     summary = await run_scrape(profile)
 
-    assert summary.written == 3
+    assert summary.written == 2
     assert summary.dedup_dropped == 0
     assert summary.existing_dropped == 0
     assert not summary.errors
 
     with Session(db_engine) as session:
         rows = list(session.execute(select(Offer)).scalars().all())
-    assert len(rows) == 3
+    assert len(rows) == 2
 
 
 @pytest.mark.asyncio
@@ -142,7 +141,7 @@ async def test_run_scrape_dry_run_no_db_writes(
     summary = await run_scrape(profile, dry_run=True)
 
     assert summary.dry_run is True
-    assert summary.written == 3  # candidates, not persisted
+    assert summary.written == 2  # candidates, not persisted
 
     with Session(db_engine) as session:
         rows = list(session.execute(select(Offer)).scalars().all())
@@ -162,14 +161,13 @@ async def test_run_scrape_one_scraper_fails(
         {
             "adzuna": _make_scraper_class("adzuna", [_offer("ML Engineer", "Acme")]),
             "jooble": _make_scraper_class("jooble", [], fail=True),
-            "wttj": _make_scraper_class("wttj", [_offer("AI Researcher", "Uni Lab")]),
         },
     )
 
     summary = await run_scrape(profile)
 
     assert "jooble" in summary.errors
-    assert summary.written == 2  # adzuna + wttj still written
+    assert summary.written == 1  # adzuna still written
     assert summary.per_platform["jooble"] == 0
     assert summary.per_platform["adzuna"] == 1
 
@@ -188,7 +186,6 @@ async def test_run_scrape_dedup_across_platforms(
         {
             "adzuna": _make_scraper_class("adzuna", [shared]),
             "jooble": _make_scraper_class("jooble", [shared]),  # exact duplicate hash
-            "wttj": _make_scraper_class("wttj", []),
         },
     )
 
@@ -233,7 +230,6 @@ async def test_run_scrape_platform_filter(
         {
             "adzuna": _track("adzuna", [_offer("ML Engineer", "Acme")]),
             "jooble": _track("jooble", []),
-            "wttj": _track("wttj", []),
         },
     )
 
@@ -241,7 +237,6 @@ async def test_run_scrape_platform_filter(
 
     assert called == ["adzuna"]
     assert "jooble" not in summary.per_platform
-    assert "wttj" not in summary.per_platform
 
 
 @pytest.mark.asyncio
@@ -258,7 +253,6 @@ async def test_run_scrape_filters_already_existing(
         {
             "adzuna": _make_scraper_class("adzuna", [_offer("ML Engineer", "Acme")]),
             "jooble": _make_scraper_class("jooble", []),
-            "wttj": _make_scraper_class("wttj", []),
         },
     )
 

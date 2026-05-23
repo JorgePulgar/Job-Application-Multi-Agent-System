@@ -1,5 +1,7 @@
 # Phase 2 · Task 05 — Welcome to the Jungle scraper (Playwright)
 
+> **Superseded by [Task 09](./09-fix-wttj-url-redirect.md) on 2026-05-23.** WTTJ removed all `/es/` job-listing routes and put every URL behind an AWS WAF JavaScript challenge. The scraper was dropped under Strategy C; Adzuna + Jooble cover Spain AI/data roles instead.
+
 ## Objective
 Scrape Welcome to the Jungle's Spain job board with Playwright async, respecting ToS and rate limits. No login required — we read public results pages only.
 

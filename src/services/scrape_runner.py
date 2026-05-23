@@ -13,7 +13,6 @@ from sqlalchemy.orm import Session
 from src.agents.job_scraper.adzuna import AdzunaScraper
 from src.agents.job_scraper.base import BaseScraper
 from src.agents.job_scraper.jooble import JoobleScraper
-from src.agents.job_scraper.wttj import WTTJScraper
 from src.db.base import get_session
 from src.db.models import User
 from src.models.job_offer import JobOffer
@@ -22,13 +21,16 @@ from src.services.dedup import dedup_within_run, filter_existing
 
 log = structlog.get_logger(__name__)
 
-ALL_PLATFORMS: tuple[str, ...] = ("adzuna", "jooble", "wttj")
+# WTTJ was removed in Phase 2 / Task 09: the site now hides every URL behind
+# an AWS WAF JavaScript challenge plus an Algolia-rendered SPA, so scraping it
+# would require ToS-violating bypasses. Coverage now comes from Adzuna +
+# Jooble APIs.
+ALL_PLATFORMS: tuple[str, ...] = ("adzuna", "jooble")
 
 # Module-level dict — patchable in tests.
 _SCRAPERS: dict[str, type[BaseScraper]] = {
     "adzuna": AdzunaScraper,
     "jooble": JoobleScraper,
-    "wttj": WTTJScraper,
 }
 
 

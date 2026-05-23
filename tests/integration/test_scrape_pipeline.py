@@ -46,16 +46,10 @@ _JOOBLE_OFFERS = [
     _o("Backend Developer", "Startup XYZ", "Valencia", "jooble"),
 ]
 
-# WTTJ returns 2 offers — one overlaps with Adzuna
-_WTTJ_OFFERS = [
-    _o("AI Researcher", "University Lab", "Bilbao", "wttj"),  # dup
-    _o("Data Scientist", "Analytics Co", "Sevilla", "wttj"),
-]
-
 # Unique offers across all platforms: ML Engineer, Data Engineer, AI Researcher,
-# Backend Developer, Data Scientist = 5 unique out of 8 raw
-_TOTAL_RAW = len(_ADZUNA_OFFERS) + len(_JOOBLE_OFFERS) + len(_WTTJ_OFFERS)  # 8
-_EXPECTED_UNIQUE = 5
+# Backend Developer = 4 unique out of 6 raw
+_TOTAL_RAW = len(_ADZUNA_OFFERS) + len(_JOOBLE_OFFERS)  # 6
+_EXPECTED_UNIQUE = 4
 
 
 # ---------------------------------------------------------------------------
@@ -115,7 +109,6 @@ def patch_scrapers(monkeypatch: pytest.MonkeyPatch) -> None:
         {
             "adzuna": _make_scraper_class("adzuna", _ADZUNA_OFFERS),
             "jooble": _make_scraper_class("jooble", _JOOBLE_OFFERS),
-            "wttj": _make_scraper_class("wttj", _WTTJ_OFFERS),
         },
     )
 
@@ -210,4 +203,3 @@ async def test_per_platform_counts_match_raw_input(
 
     assert summary.per_platform["adzuna"] == len(_ADZUNA_OFFERS)
     assert summary.per_platform["jooble"] == len(_JOOBLE_OFFERS)
-    assert summary.per_platform["wttj"] == len(_WTTJ_OFFERS)
