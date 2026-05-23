@@ -4,12 +4,12 @@
 Given a company name, gather public info via web search and synthesize a `CompanyDossier` with `gpt-4o`.
 
 ## Acceptance criteria
-- [ ] `src/agents/company_researcher.py` implements `class CompanyResearcher` with `async def research(self, company_name: str) -> CompanyDossier`.
-- [ ] Issues 3-5 web search queries: `"{name} empresa"`, `"{name} site:linkedin.com/company"`, `"{name} reseñas glassdoor"`, `"{name} stack tecnológico"`, `"{name} news"`.
-- [ ] Pipes top results' titles + snippets into the LLM prompt (NOT the full pages — keep token use down).
-- [ ] Uses structured outputs to return a `CompanyDossier`.
-- [ ] Prompt files in `src/prompts/company_researcher.{system,user}.md` (Spanish).
-- [ ] Persists/updates the `companies` row (`dossier_completo` JSON, `fecha_research`, `expira_en` = +30 days).
+- [x] `src/agents/company_researcher.py` implements `class CompanyResearcher` with `async def research(self, company_name: str) -> CompanyDossier`.
+- [x] Issues 3-5 web search queries: `"{name} empresa"`, `"{name} site:linkedin.com/company"`, `"{name} reseñas glassdoor"`, `"{name} stack tecnológico"`, `"{name} news"`.
+- [x] Pipes top results' titles + snippets into the LLM prompt (NOT the full pages — keep token use down).
+- [x] Uses structured outputs to return a `CompanyDossier`.
+- [x] Prompt files in `src/prompts/company_researcher.{system,user}.md` (Spanish).
+- [x] Persists/updates the `companies` row (`dossier_completo` JSON, `fecha_research`, `expira_en` = +30 days).
 
 ## Files to create / modify
 - `src/agents/company_researcher.py`

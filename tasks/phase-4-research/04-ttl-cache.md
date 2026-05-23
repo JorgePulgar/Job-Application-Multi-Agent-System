@@ -4,11 +4,11 @@
 Avoid re-researching a company we already know about within 30 days. Simple, DB-backed.
 
 ## Acceptance criteria
-- [ ] `CompanyResearcher.research(name)` first checks the `companies` table for an existing row with `expira_en > now()`. If found, returns the existing dossier without any search or LLM call.
-- [ ] If expired or absent, runs the full research and writes back.
-- [ ] TTL configurable via setting `COMPANY_RESEARCH_TTL_DAYS` (default 30).
-- [ ] Optional CLI flag `--force-refresh` to bypass the cache.
-- [ ] Cache hits / misses logged with structured fields (no PII).
+- [x] `CompanyResearcher.research(name)` first checks the `companies` table for an existing row with `expira_en > now()`. If found, returns the existing dossier without any search or LLM call.
+- [x] If expired or absent, runs the full research and writes back.
+- [x] TTL configurable via setting `COMPANY_RESEARCH_TTL_DAYS` (default 30).
+- [x] Optional CLI flag `--force-refresh` to bypass the cache.
+- [x] Cache hits / misses logged with structured fields (no PII).
 
 ## Files to create / modify
 - `src/agents/company_researcher.py` (extend Task 03)

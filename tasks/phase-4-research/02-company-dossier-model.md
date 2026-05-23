@@ -4,9 +4,9 @@
 Structured output of `CompanyResearcher`, persisted to `companies.dossier_completo` and used downstream by the evaluator and writer.
 
 ## Acceptance criteria
-- [ ] `src/models/company.py` defines `CompanyDossier` with at minimum: `sector`, `tamano` (enum: `startup|pyme|grande|enterprise|unknown`), `ubicacion_hq`, `descripcion`, `stack_tecnologico: list[str]`, `cultura_notas: list[str]`, `red_flags_detectadas: list[str]`, `productos_o_servicios: list[str]`, `equipo_ai_detectado: bool`, `fuentes: list[HttpUrl]`.
-- [ ] All fields documented. Validators ensure lists are deduplicated, lowercased where appropriate.
-- [ ] Helper `to_summary_for_prompt()` returns a concise markdown summary (≤ ~300 tokens) for inclusion in downstream prompts.
+- [x] `src/models/company.py` defines `CompanyDossier` with at minimum: `sector`, `tamano` (enum: `startup|pyme|grande|enterprise|unknown`), `ubicacion_hq`, `descripcion`, `stack_tecnologico: list[str]`, `cultura_notas: list[str]`, `red_flags_detectadas: list[str]`, `productos_o_servicios: list[str]`, `equipo_ai_detectado: bool`, `fuentes: list[HttpUrl]`.
+- [x] All fields documented. Validators ensure lists are deduplicated, lowercased where appropriate.
+- [x] Helper `to_summary_for_prompt()` returns a concise markdown summary (≤ ~300 tokens) for inclusion in downstream prompts.
 
 ## Files to create / modify
 - `src/models/company.py`
