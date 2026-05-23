@@ -4,9 +4,9 @@
 Real CLI command running `ViabilityEvaluator` on each offer whose company has been researched.
 
 ## Acceptance criteria
-- [ ] `python -m src.cli evaluate --user jorge` selects offers with `estado='researching'` (or `relevant` if research was skipped) AND `empresa_id` not null, runs the evaluator.
-- [ ] `--limit N`, `--dry-run`.
-- [ ] Summary: per-recommendation counts, tokens used.
+- [x] `python -m src.cli evaluate --user jorge` selects offers with `estado='researching'` (or `relevant` if research was skipped) AND `empresa_id` not null, runs the evaluator.
+- [x] `--limit N`, `--dry-run`.
+- [x] Summary: per-recommendation counts, tokens used.
 
 ## Files to create / modify
 - `src/cli.py` (replace `evaluate` stub)

@@ -16,6 +16,7 @@ from sqlalchemy import select
 from alembic import command as alembic_command
 from src.agents.company_researcher import CompanyResearcher
 from src.agents.offer_filter import OfferFilter
+from src.agents.viability_evaluator import ViabilityEvaluator
 from src.db import Company, Offer, OfferEstado, get_session
 from src.db.models import User
 from src.services.azure_openai import AzureOpenAIClient
@@ -390,16 +391,102 @@ def research_companies(obj: AppContext, user: str, force_refresh: bool, limit: i
 
 
 # ---------------------------------------------------------------------------
-# evaluate (stub — Phase 5)
+# evaluate (Phase 5)
 # ---------------------------------------------------------------------------
+
+
+async def _run_evaluate(
+    obj: AppContext,
+    username: str,
+    *,
+    limit: int | None,
+    dry_run: bool,
+) -> None:
+    user_profile = load_profile(username)
+    client = AzureOpenAIClient()
+
+    with get_session() as session:
+        user_row = session.execute(
+            select(User).where(User.username == username)
+        ).scalar_one_or_none()
+        if user_row is None:
+            click.echo(
+                f"User '{username}' not found in DB. "
+                f"Run: python -m src.cli profile load --user {username}",
+                err=True,
+            )
+            return
+
+        q = (
+            select(Offer)
+            .where(Offer.user_id == user_row.id)
+            .where(Offer.estado.in_([OfferEstado.investigada, OfferEstado.filtrada]))
+            .where(Offer.company_id.is_not(None))
+            .order_by(Offer.fecha_detectada.desc())
+        )
+        if limit is not None:
+            q = q.limit(limit)
+
+        offers = list(session.execute(q).scalars().all())
+
+        if not offers:
+            click.echo("No hay ofertas investigadas listas para evaluar.")
+            return
+
+        click.echo(f"Evaluando {len(offers)} oferta(s) para '{username}'…")
+
+        agent = ViabilityEvaluator(client, session)
+        counts: dict[str, int] = {"aplicar": 0, "dudar": 0, "descartar": 0, "error": 0}
+
+        for offer in offers:
+            company_row = session.execute(
+                select(Company).where(Company.id == offer.company_id)
+            ).scalar_one_or_none()
+
+            if company_row is None:
+                click.echo(f"  SKIP [{offer.id}] {offer.titulo[:50]} — empresa no encontrada")
+                continue
+
+            if dry_run:
+                click.echo(f"  [dry-run] skip: [{offer.id}] {offer.titulo[:50]}")
+                continue
+
+            try:
+                evaluation = await agent.evaluate(offer, company_row, user_profile)
+                counts[evaluation.recomendacion] += 1
+                click.echo(
+                    f"  [{offer.id}] {offer.titulo[:50]} "
+                    f"→ {evaluation.recomendacion.upper()} (score: {evaluation.score})"
+                )
+            except Exception as exc:
+                counts["error"] += 1
+                click.echo(f"  ERROR [{offer.id}] {offer.titulo[:50]}: {exc}", err=True)
+
+        if dry_run:
+            session.rollback()
+
+    click.echo("\n=== Resumen de evaluación ===")
+    click.echo(f"  Aplicar:   {counts['aplicar']}")
+    click.echo(f"  Dudar:     {counts['dudar']}")
+    click.echo(f"  Descartar: {counts['descartar']}")
+    click.echo(f"  Errores:   {counts['error']}")
+    click.echo("=============================\n")
 
 
 @cli.command()
 @click.option("--user", required=True, help="Username whose researched offers to evaluate.")
+@click.option("--limit", default=None, type=int, help="Process at most N offers (for testing).")
+@click.option(
+    "--dry-run",
+    "evaluate_dry_run",
+    is_flag=True,
+    default=False,
+    help="Print plan without writing to the DB.",
+)
 @click.pass_obj
-def evaluate(obj: AppContext, user: str) -> None:
+def evaluate(obj: AppContext, user: str, limit: int | None, evaluate_dry_run: bool) -> None:
     """Run the viability-evaluator agent on researched offers."""
-    click.echo("not implemented (phase 5)")
+    asyncio.run(_run_evaluate(obj, user, limit=limit, dry_run=evaluate_dry_run or obj.dry_run))
 
 
 # ---------------------------------------------------------------------------
