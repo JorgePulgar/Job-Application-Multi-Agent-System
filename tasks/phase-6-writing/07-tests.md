@@ -4,10 +4,10 @@
 Close out Phase 6.
 
 ## Acceptance criteria
-- [ ] Unit tests for lint rules (prohibited words list, specificity check, AI-disclosure check).
-- [ ] Unit test for max-2-regen behavior.
-- [ ] Integration test of the writer CLI against mocked services.
-- [ ] Verify no PII or draft body leaks into logs.
+- [x] Unit tests for lint rules (prohibited words list, specificity check, AI-disclosure check).
+- [x] Unit test for max-2-regen behavior.
+- [x] Integration test of the writer CLI against mocked services.
+- [x] Verify no PII or draft body leaks into logs.
 
 ## Files to create / modify
 - `tests/unit/test_draft_lint.py` (extend)

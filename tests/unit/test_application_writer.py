@@ -363,3 +363,17 @@ async def test_write_no_retry_when_first_draft_clean() -> None:
     result = await agent.write(_make_offer(), _make_company(), _make_evaluation(), _make_profile())
     assert result.needs_manual_context is False
     assert client.chat.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_write_does_not_log_draft_body() -> None:
+    from structlog.testing import capture_logs
+
+    agent, _ = _make_agent()
+    with capture_logs() as logs:
+        await agent.write(_make_offer(), _make_company(), _make_evaluation(), _make_profile())
+
+    blob = " ".join(str(v) for event in logs for v in event.values())
+    # Distinctive token from _BODY must never appear in any log event.
+    assert "lanzado vuestra plataforma" not in blob
+    assert _BODY not in blob

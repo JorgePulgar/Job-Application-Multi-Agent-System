@@ -203,3 +203,24 @@ def test_body_hash_is_stable_and_short() -> None:
     h2 = draft_lint.body_hash("hola")
     assert h1 == h2
     assert len(h1) == 12
+
+
+# ---------------------------------------------------------------------------
+# No draft body leaks into logs
+# ---------------------------------------------------------------------------
+
+
+def test_lint_does_not_log_draft_body() -> None:
+    from structlog.testing import capture_logs
+
+    draft = _draft()  # body contains the distinctive token "Kafka"
+    with capture_logs() as logs:
+        draft_lint.lint(draft, _dossier(), _EMPRESA)
+
+    events = [e for e in logs if e.get("event") == "draft_lint"]
+    assert events, "expected a draft_lint log event"
+    ev = events[0]
+    assert "body_hash" in ev
+    blob = " ".join(str(v) for v in ev.values())
+    assert draft.email_body not in blob
+    assert "Kafka" not in blob  # distinctive body token must not leak
