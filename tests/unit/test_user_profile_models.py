@@ -184,6 +184,48 @@ def test_cv_for_prompt_minimal_no_optional_sections() -> None:
 
 
 # ---------------------------------------------------------------------------
+# signature_html
+# ---------------------------------------------------------------------------
+
+
+def test_signature_html_contains_name_and_email() -> None:
+    profile = UserProfile.model_validate(MINIMAL_VALID)
+    sig = profile.signature_html()
+    assert "Jorge Pulgar" in sig
+    assert "mailto:jorge@example.com" in sig
+    assert sig.startswith("<div")
+
+
+def test_signature_html_includes_links_when_present() -> None:
+    data = {
+        **MINIMAL_VALID,
+        "github_url": "https://github.com/JorgePulgar",
+        "linkedin_url": "https://www.linkedin.com/in/jorgepulgar/",
+    }
+    sig = UserProfile.model_validate(data).signature_html()
+    assert "https://github.com/JorgePulgar" in sig
+    assert "GitHub" in sig
+    assert "LinkedIn" in sig
+
+
+def test_signature_html_omits_absent_links() -> None:
+    sig = UserProfile.model_validate(MINIMAL_VALID).signature_html()
+    assert "GitHub" not in sig
+    assert "LinkedIn" not in sig
+
+
+def test_signature_html_has_no_dashes() -> None:
+    data = {
+        **MINIMAL_VALID,
+        "github_url": "https://github.com/JorgePulgar",
+        "linkedin_url": "https://www.linkedin.com/in/jorgepulgar/",
+    }
+    sig = UserProfile.model_validate(data).signature_html()
+    assert "—" not in sig
+    assert "–" not in sig  # noqa: RUF001
+
+
+# ---------------------------------------------------------------------------
 # LocationPreference
 # ---------------------------------------------------------------------------
 

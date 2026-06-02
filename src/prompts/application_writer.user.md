@@ -1,4 +1,4 @@
-Redacta un borrador de candidatura para esta oferta siguiendo todas las reglas del sistema.
+Escribe un email corto de candidatura para esta oferta, siguiendo todas las reglas del sistema.
 
 ## Oferta
 - Puesto: {{titulo}}
@@ -10,20 +10,22 @@ Redacta un borrador de candidatura para esta oferta siguiendo todas las reglas d
 ### Descripción de la oferta
 {{descripcion}}
 
-## Dossier de la empresa
+## Dossier de investigación de la empresa
 {{dossier_summary}}
 
-## Evaluación de viabilidad (contexto interno, no citar literalmente)
+## Evaluación de viabilidad (contexto interno, no lo cites literalmente)
 
 Ventajas detectadas:
 {{evaluation_ventajas}}
 
-Desventajas / dudas:
+Desventajas o dudas:
 {{evaluation_desventajas}}
 
-## Instrucciones finales
+## Recordatorios finales
 
-1. Elige entre 3 y 5 experiencias del CV que mejor encajen con esta oferta.
-2. Incluye al menos una referencia concreta a la empresa o a la oferta (producto, tecnología, proyecto o dato del dossier).
-3. Si no hay ningún dato específico honesto que mencionar, devuelve `needs_manual_context=true` con `flagged_reasons`.
-4. No uses ninguna palabra prohibida. No reveles asistencia de IA. Tono profesional, cercano y conciso.
+1. Abre con una prueba concreta, no con intenciones.
+2. Incluye al menos una referencia real a la empresa o a la oferta (usa el dossier). Si no la hay, devuelve `needs_manual_context=true`.
+3. Entre 90 y 160 palabras. Frases cortas, menos de 22 palabras cada una.
+4. Cero rayas y cero guiones largos. Ninguna palabra prohibida. No reveles asistencia de IA.
+5. No firmes ni pongas tu nombre al final. La firma se añade sola.
+6. Cierra con una sola petición de baja fricción.

@@ -84,7 +84,7 @@ class ApplicationWriter:
         if result.parsed is None or not isinstance(result.parsed, Draft):
             raise ApplicationWriterError(f"LLM did not return a valid Draft for offer {offer.id}")
 
-        draft: Draft = result.parsed
+        draft: Draft = self._append_signature(result.parsed, profile)
 
         log.info(
             "application_draft_done",
@@ -115,3 +115,24 @@ class ApplicationWriter:
         if not items:
             return "- (ninguno)"
         return "\n".join(f"- {item}" for item in items)
+
+    @staticmethod
+    def _append_signature(draft: Draft, profile: UserProfile) -> Draft:
+        """Append the user's deterministic HTML signature to a complete draft.
+
+        Flagged drafts (``needs_manual_context``) have an empty body and are
+        left untouched. The signature is built from profile data, not generated
+        by the model, so the HTML is never mangled.
+
+        Args:
+            draft: The model-generated draft.
+            profile: User profile providing the signature.
+
+        Returns:
+            A copy of *draft* with the signature appended to ``email_body``,
+            or the original draft if it is flagged.
+        """
+        if draft.needs_manual_context:
+            return draft
+        body = f"{draft.email_body}\n\n{profile.signature_html()}"
+        return draft.model_copy(update={"email_body": body})

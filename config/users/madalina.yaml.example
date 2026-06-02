@@ -2,6 +2,8 @@ username: madalina
 nombre: Madalina Ionescu
 email: madalina@example.com
 phone: "+34 722 987 654"
+github_url: https://github.com/madalina-example
+linkedin_url: https://www.linkedin.com/in/madalina-example/
 location: Barcelona, España
 
 target_roles:

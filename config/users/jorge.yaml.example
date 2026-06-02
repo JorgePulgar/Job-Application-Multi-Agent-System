@@ -2,6 +2,8 @@ username: jorge
 nombre: Jorge Pulgar
 email: jorge@example.com
 phone: "+34 612 345 678"
+github_url: https://github.com/JorgePulgar
+linkedin_url: https://www.linkedin.com/in/jorgepulgar/
 location: Madrid, España
 
 target_roles:

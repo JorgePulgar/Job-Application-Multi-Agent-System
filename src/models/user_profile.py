@@ -71,6 +71,8 @@ class UserProfile(BaseModel):
     nombre: str
     email: EmailStr
     phone: str | None = None
+    github_url: str | None = None
+    linkedin_url: str | None = None
     location: str
     target_roles: list[str]
     target_sectors: list[str] = Field(default_factory=list)
@@ -166,3 +168,30 @@ class UserProfile(BaseModel):
             lines.append("")
 
         return "\n".join(line for line in lines if line is not None)
+
+    def signature_html(self) -> str:
+        """Return the user's email signature as an inline-styled HTML block.
+
+        Built deterministically from profile data so it is identical across
+        drafts and never invented by the model. GitHub and LinkedIn links are
+        included only when present on the profile.
+
+        Returns:
+            A single ``<div>`` HTML string with name, email, and any links.
+        """
+        link_style = 'style="color: #333; text-decoration: none;"'
+        sep = "\n  &nbsp;&middot;&nbsp;\n  "
+
+        links: list[str] = [f'<a href="mailto:{self.email}" {link_style}>{self.email}</a>']
+        if self.github_url:
+            links.append(f'<a href="{self.github_url}" {link_style}>GitHub</a>')
+        if self.linkedin_url:
+            links.append(f'<a href="{self.linkedin_url}" {link_style}>LinkedIn</a>')
+
+        return (
+            '<div style="font-family: Arial, Helvetica, sans-serif; '
+            'font-size: 14px; color: #333;">\n'
+            f"  {self.nombre}<br>\n  "
+            f"{sep.join(links)}\n"
+            "</div>"
+        )
