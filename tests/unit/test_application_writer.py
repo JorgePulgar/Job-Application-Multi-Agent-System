@@ -293,3 +293,73 @@ async def test_write_body_has_no_dashes_from_signature() -> None:
     result = await agent.write(_make_offer(), _make_company(), _make_evaluation(), _make_profile())
     assert "—" not in result.email_body
     assert "–" not in result.email_body  # noqa: RUF001
+
+
+# ---------------------------------------------------------------------------
+# Lint + regeneration (Task 04)
+# ---------------------------------------------------------------------------
+
+# Body that fails the lint: never names the company "Acme", so specificity fails.
+_BAD_BODY = (
+    "Construí pipelines de datos durante varios años y me ocupo de su calidad y "
+    "fiabilidad. Trabajo a diario con Python y SQL. Puedo enviaros un recorrido de "
+    "dos minutos por el repositorio, o lo vemos en una llamada corta cuando queráis."
+)
+
+
+def _bad_draft() -> Draft:
+    return Draft(
+        email_subject="asunto sin nombre de empresa",
+        email_body=_BAD_BODY,
+        experiencias_destacadas=["pipelines", "python", "sql"],
+    )
+
+
+def _agent_with_sequence(drafts: list[Draft]) -> tuple[ApplicationWriter, MagicMock]:
+    client = MagicMock()
+    client.chat = AsyncMock(side_effect=[_make_chat_result(d) for d in drafts])
+    return ApplicationWriter(client), client
+
+
+@pytest.mark.asyncio
+async def test_write_regenerates_then_succeeds() -> None:
+    agent, client = _agent_with_sequence([_bad_draft(), _make_draft()])
+
+    result = await agent.write(_make_offer(), _make_company(), _make_evaluation(), _make_profile())
+
+    assert result.needs_manual_context is False
+    assert result.email_subject == "Candidatura: ML Engineer en Acme"
+    assert client.chat.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_write_retry_includes_lint_feedback() -> None:
+    agent, client = _agent_with_sequence([_bad_draft(), _make_draft()])
+
+    await agent.write(_make_offer(), _make_company(), _make_evaluation(), _make_profile())
+
+    retry_user = client.chat.call_args_list[1].kwargs["user"]
+    assert "Corrige" in retry_user
+    assert "empresa" in retry_user  # the failing reason is echoed back
+
+
+@pytest.mark.asyncio
+async def test_write_flags_after_max_retries() -> None:
+    bad = _bad_draft()
+    agent, client = _agent_with_sequence([bad, _bad_draft(), _bad_draft()])
+
+    result = await agent.write(_make_offer(), _make_company(), _make_evaluation(), _make_profile())
+
+    assert result.needs_manual_context is True
+    assert result.flagged_reasons  # non-empty reasons
+    assert result.email_body == ""
+    assert client.chat.call_count == 3  # initial + 2 retries
+    assert result.experiencias_destacadas == bad.experiencias_destacadas
+
+
+@pytest.mark.asyncio
+async def test_write_no_retry_when_first_draft_clean() -> None:
+    agent, client = _agent_with_sequence([_make_draft()])
+    result = await agent.write(_make_offer(), _make_company(), _make_evaluation(), _make_profile())
+    assert result.needs_manual_context is False
+    assert client.chat.call_count == 1

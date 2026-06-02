@@ -10,10 +10,13 @@ from src.models.company import CompanyDossier
 from src.models.draft import Draft
 from src.models.evaluation import ViabilityEvaluation
 from src.models.user_profile import UserProfile
-from src.services import prompt_loader
+from src.services import draft_lint, prompt_loader
 from src.services.azure_openai import AzureOpenAIClient
 
 logger = structlog.get_logger(__name__)
+
+# Maximum regeneration attempts after the first generation fails the lint.
+_MAX_RETRIES = 2
 
 
 class ApplicationWriterError(JobAgentError):
@@ -49,65 +52,123 @@ class ApplicationWriter:
             profile: User profile providing the CV and target roles.
 
         Returns:
-            A validated ``Draft`` (may be flagged ``needs_manual_context``).
+            A validated ``Draft``. May be flagged ``needs_manual_context`` if
+            the model self-flags or the draft still fails the lint after
+            ``_MAX_RETRIES`` regenerations.
 
         Raises:
             ApplicationWriterError: If the LLM returns an invalid response.
         """
         log = logger.bind(offer_id=offer.id, titulo=offer.titulo[:60])
 
+        dossier = self._parse_dossier(company)
         system = prompt_loader.load_system(
             "application_writer",
             cv_summary=profile.cv_for_prompt(),
         )
-        user = prompt_loader.load_user(
+        base_user = prompt_loader.load_user(
             "application_writer",
             titulo=offer.titulo,
             empresa=offer.empresa,
             ubicacion=offer.ubicacion or "No especificada",
             modalidad=str(profile.location_preference.modality),
             descripcion=(offer.descripcion or "Sin descripción")[:4000],
-            dossier_summary=self._build_dossier_summary(company),
+            dossier_summary=self._dossier_summary(dossier, company.nombre),
             evaluation_ventajas=self._bullets(evaluation.ventajas),
             evaluation_desventajas=self._bullets(evaluation.desventajas),
             target_roles=", ".join(profile.target_roles),
         )
 
-        result = await self._client.chat(
-            deployment="4o",
-            system=system,
-            user=user,
-            response_format=Draft,
-            cacheable_system=True,
-        )
+        last_draft: Draft | None = None
+        last_issues: list[str] = []
 
-        if result.parsed is None or not isinstance(result.parsed, Draft):
-            raise ApplicationWriterError(f"LLM did not return a valid Draft for offer {offer.id}")
+        for attempt in range(_MAX_RETRIES + 1):
+            user = base_user if attempt == 0 else f"{base_user}\n\n{self._feedback(last_issues)}"
 
-        draft: Draft = self._append_signature(result.parsed, profile)
+            result = await self._client.chat(
+                deployment="4o",
+                system=system,
+                user=user,
+                response_format=Draft,
+                cacheable_system=True,
+            )
+            if result.parsed is None or not isinstance(result.parsed, Draft):
+                raise ApplicationWriterError(
+                    f"LLM did not return a valid Draft for offer {offer.id}"
+                )
 
-        log.info(
-            "application_draft_done",
-            needs_manual_context=draft.needs_manual_context,
-            flagged_reasons=draft.flagged_reasons,
-            tokens=result.usage.total_tokens,
-        )
-        return draft
+            draft = result.parsed
+            if draft.needs_manual_context:
+                log.info("application_draft_model_flagged", attempt=attempt)
+                return draft
+
+            last_draft = draft
+            lint_result = draft_lint.lint(draft, dossier, company.nombre)
+            if lint_result.ok:
+                log.info(
+                    "application_draft_done",
+                    attempt=attempt,
+                    tokens=result.usage.total_tokens,
+                )
+                return self._append_signature(draft, profile)
+
+            last_issues = lint_result.issues
+            log.info("application_draft_lint_failed", attempt=attempt, issues=last_issues)
+
+        log.warning("application_draft_flagged_after_retries", issues=last_issues)
+        return self._flagged_draft(last_draft, last_issues)
 
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _build_dossier_summary(self, company: Company) -> str:
-        """Return a prompt-ready company summary from the stored dossier JSON."""
+    def _parse_dossier(self, company: Company) -> CompanyDossier | None:
+        """Parse the stored dossier JSON into a CompanyDossier, or None on failure."""
         if company.dossier_json is None:
-            return f"Empresa: {company.nombre}. Sin dossier disponible."
+            return None
         try:
-            dossier = CompanyDossier.model_validate(company.dossier_json)
-            return dossier.to_summary_for_prompt()
+            return CompanyDossier.model_validate(company.dossier_json)
         except Exception as exc:
             logger.warning("application_writer_bad_dossier", company=company.nombre, error=str(exc))
-            return f"Empresa: {company.nombre}. Dossier no disponible (error de formato)."
+            return None
+
+    @staticmethod
+    def _dossier_summary(dossier: CompanyDossier | None, nombre: str) -> str:
+        """Return a prompt-ready company summary, or a fallback when unavailable."""
+        if dossier is None:
+            return f"Empresa: {nombre}. Sin dossier disponible (o con error de formato)."
+        return dossier.to_summary_for_prompt()
+
+    @staticmethod
+    def _feedback(issues: list[str]) -> str:
+        """Render lint issues as a corrective instruction block for regeneration."""
+        bullets = "\n".join(f"- {issue}" for issue in issues)
+        return (
+            "## Corrige estos problemas del borrador anterior\n"
+            "El borrador anterior fue rechazado por estos motivos. Corrígelos todos:\n"
+            f"{bullets}"
+        )
+
+    @staticmethod
+    def _flagged_draft(last_draft: Draft | None, issues: list[str]) -> Draft:
+        """Build a needs_manual_context Draft after retries are exhausted.
+
+        ``Draft`` requires 3-5 ``experiencias_destacadas`` even when flagged, so
+        the last attempt's experiences are reused when available.
+        """
+        experiencias = (
+            last_draft.experiencias_destacadas
+            if last_draft is not None
+            else ["(pendiente)", "(pendiente)", "(pendiente)"]
+        )
+        return Draft(
+            email_subject="",
+            email_body="",
+            carta_presentacion=None,
+            experiencias_destacadas=experiencias,
+            needs_manual_context=True,
+            flagged_reasons=issues,
+        )
 
     @staticmethod
     def _bullets(items: list[str]) -> str:
