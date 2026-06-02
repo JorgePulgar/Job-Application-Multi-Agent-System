@@ -14,12 +14,15 @@ from alembic.config import Config as AlembicConfig
 from sqlalchemy import select
 
 from alembic import command as alembic_command
+from src.agents.application_writer import ApplicationWriter
 from src.agents.company_researcher import CompanyResearcher
 from src.agents.offer_filter import OfferFilter
 from src.agents.viability_evaluator import ViabilityEvaluator
 from src.db import Company, Offer, OfferEstado, get_session
-from src.db.models import User
-from src.services.azure_openai import AzureOpenAIClient
+from src.db.models import Evaluation, User
+from src.models.evaluation import ViabilityEvaluation
+from src.services import draft_persistence
+from src.services.azure_openai import AzureOpenAIClient, TokenUsage, register_usage_tracker
 from src.services.profiles import load_profile, upsert_user_row
 from src.services.scrape_runner import ALL_PLATFORMS, ScrapeRunSummary, run_scrape
 
@@ -490,16 +493,159 @@ def evaluate(obj: AppContext, user: str, limit: int | None, evaluate_dry_run: bo
 
 
 # ---------------------------------------------------------------------------
-# write-drafts (stub — Phase 6)
+# write-drafts (Phase 6)
 # ---------------------------------------------------------------------------
+
+
+def _eval_from_row(ev: Evaluation) -> ViabilityEvaluation:
+    """Reconstruct the ViabilityEvaluation pydantic model from its stored row."""
+    contras = ev.contras if isinstance(ev.contras, dict) else {}
+    return ViabilityEvaluation(
+        score=ev.puntuacion,
+        ventajas=list(ev.pros or []),
+        desventajas=list(contras.get("desventajas", [])),
+        red_flags_match=list(contras.get("red_flags_match", [])),
+        recomendacion=ev.recomendacion,  # type: ignore[arg-type]
+        reasoning=ev.razonamiento or "",
+    )
+
+
+async def _run_write_drafts(
+    obj: AppContext,
+    username: str,
+    *,
+    limit: int | None,
+    dry_run: bool,
+    recomendacion: str | None,
+) -> None:
+    user_profile = load_profile(username)
+    client = AzureOpenAIClient()
+    agent = ApplicationWriter(client)
+
+    total_tokens = 0
+
+    def _track(_model: str, usage: TokenUsage) -> None:
+        nonlocal total_tokens
+        total_tokens += usage.total_tokens
+
+    register_usage_tracker(_track)
+
+    allowed = [recomendacion] if recomendacion else ["aplicar", "dudar"]
+    written = 0
+    flagged = 0
+    errors = 0
+
+    with get_session() as session:
+        user_row = session.execute(
+            select(User).where(User.username == username)
+        ).scalar_one_or_none()
+        if user_row is None:
+            click.echo(
+                f"User '{username}' not found in DB. "
+                f"Run: python -m src.cli profile load --user {username}",
+                err=True,
+            )
+            return
+
+        q = (
+            select(Offer)
+            .join(Evaluation, Evaluation.offer_id == Offer.id)
+            .where(Offer.user_id == user_row.id)
+            .where(Offer.estado == OfferEstado.evaluada)
+            .where(Evaluation.recomendacion.in_(allowed))
+            .order_by(Offer.fecha_detectada.desc())
+        )
+        if limit is not None:
+            q = q.limit(limit)
+
+        offers = list(session.execute(q).scalars().all())
+
+        if not offers:
+            click.echo("No hay ofertas evaluadas listas para redactar.")
+            return
+
+        click.echo(f"Redactando borradores para {len(offers)} oferta(s) de '{username}'…")
+
+        for offer in offers:
+            company_row = session.execute(
+                select(Company).where(Company.id == offer.company_id)
+            ).scalar_one_or_none()
+            if company_row is None:
+                click.echo(f"  SKIP [{offer.id}] {offer.titulo[:50]} — empresa no encontrada")
+                continue
+
+            evaluation = _eval_from_row(offer.evaluation) if offer.evaluation else None
+            if evaluation is None:
+                click.echo(f"  SKIP [{offer.id}] {offer.titulo[:50]} — sin evaluación")
+                continue
+
+            try:
+                draft = await agent.write(offer, company_row, evaluation, user_profile)
+            except Exception as exc:
+                errors += 1
+                click.echo(f"  ERROR [{offer.id}] {offer.titulo[:50]}: {exc}", err=True)
+                continue
+
+            if draft.needs_manual_context:
+                flagged += 1
+                tag = "FLAGGED (needs_manual_context)"
+            else:
+                written += 1
+                tag = "OK"
+
+            if not dry_run:
+                path = draft_persistence.save_draft(draft, offer, user_profile, session)
+                click.echo(f"  [{offer.id}] {offer.titulo[:50]} → {tag} ({path.name})")
+            else:
+                click.echo(f"  [dry-run] [{offer.id}] {offer.titulo[:50]} → {tag}")
+
+        if dry_run:
+            session.rollback()
+
+    click.echo("\n=== Resumen de redacción ===")
+    click.echo(f"  Borradores escritos:  {written}")
+    click.echo(f"  Necesitan contexto:   {flagged}")
+    click.echo(f"  Errores:              {errors}")
+    click.echo(f"  Tokens usados:        {total_tokens}")
+    if dry_run:
+        click.echo("  (dry-run — sin cambios en DB ni ficheros)")
+    click.echo("============================\n")
 
 
 @cli.command("write-drafts")
 @click.option("--user", required=True, help="Username for whom to generate application drafts.")
+@click.option("--limit", default=None, type=int, help="Process at most N offers.")
+@click.option(
+    "--dry-run",
+    "write_dry_run",
+    is_flag=True,
+    default=False,
+    help="Generate drafts without persisting to the DB or disk.",
+)
+@click.option(
+    "--recomendacion",
+    default=None,
+    type=click.Choice(["aplicar", "dudar"], case_sensitive=False),
+    help="Only draft offers with this recommendation (default: both aplicar and dudar).",
+)
 @click.pass_obj
-def write_drafts(obj: AppContext, user: str) -> None:
-    """Run the application-writer agent for evaluated offers."""
-    click.echo("not implemented (phase 6)")
+def write_drafts(
+    obj: AppContext,
+    user: str,
+    limit: int | None,
+    write_dry_run: bool,
+    recomendacion: str | None,
+) -> None:
+    """Run the application-writer agent for evaluated offers (recomendacion aplicar/dudar)."""
+    asyncio.run(
+        _run_write_drafts(
+            obj,
+            user,
+            limit=limit,
+            dry_run=write_dry_run or obj.dry_run,
+            recomendacion=recomendacion.lower() if recomendacion else None,
+        )
+    )
 
 
 # ---------------------------------------------------------------------------

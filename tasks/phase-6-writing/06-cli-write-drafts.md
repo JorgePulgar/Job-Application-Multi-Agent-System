@@ -4,10 +4,10 @@
 Real CLI promoting the stub.
 
 ## Acceptance criteria
-- [ ] `python -m src.cli write-drafts --user jorge` selects offers with `estado='evaluated'` and `recomendacion ∈ {aplicar, dudar}` for that user, generates drafts.
-- [ ] `--limit N`, `--dry-run` (don't persist).
-- [ ] `--recomendacion aplicar` to filter only strong recommendations.
-- [ ] Summary: drafts written, drafts flagged `needs_manual_context`, tokens used.
+- [x] `python -m src.cli write-drafts --user jorge` selects offers with `estado='evaluada'` and `recomendacion ∈ {aplicar, dudar}` for that user, generates drafts.
+- [x] `--limit N`, `--dry-run` (don't persist).
+- [x] `--recomendacion aplicar` to filter only strong recommendations.
+- [x] Summary: drafts written, drafts flagged `needs_manual_context`, tokens used.
 
 ## Files to create / modify
 - `src/cli.py` (replace stub)
