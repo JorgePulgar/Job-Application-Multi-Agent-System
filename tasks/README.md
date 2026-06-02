@@ -112,3 +112,22 @@ Phase 11 requires **explicit user approval** before starting. Do not begin Phase
 - [ ] [06 — Manual-context flow](phase-11-warm-outreach/06-manual-context-flow.md)
 - [ ] [07 — Signal scanner service + weekly-signals.yml](phase-11-warm-outreach/07-signal-scanner-service.md)
 - [ ] [08 — Telegram outreach summary + signal alerts](phase-11-warm-outreach/08-telegram-outreach-summary.md)
+
+---
+
+### ⛔ STOP after Phase 11
+
+Phase 12 is **v2 scope** (multilingual + multi-country). Requires **explicit user approval** before starting, only after v1 (Phase 10) and v1.1 (Phase 11) are complete.
+
+---
+
+## Phase 12 — Multilingual & Multi-country (v2, after explicit approval)
+
+Lifts the v1 "Spain + Spanish only" constraint: per-user target countries and Spanish+English search/drafting. The v1 "all prompts in Spanish" rule stays for v1/v1.1; Phase 12 / Task 04 introduces locale-aware prompts that override it for v2 only.
+
+- [ ] [01 — Per-user target countries + search languages](phase-12-multilingual/01-config-countries-languages.md)
+- [ ] [02 — Multi-country / multi-locale scrapers](phase-12-multilingual/02-multi-country-scrapers.md)
+- [ ] [03 — Bilingual search keyword expansion](phase-12-multilingual/03-bilingual-search-keywords.md)
+- [ ] [04 — Locale-aware prompt loader + English prompts](phase-12-multilingual/04-locale-aware-prompts.md)
+- [ ] [05 — Draft language selection](phase-12-multilingual/05-draft-language-selection.md)
+- [ ] [06 — Multilingual / multi-country tests](phase-12-multilingual/06-tests.md)
