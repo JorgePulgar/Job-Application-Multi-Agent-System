@@ -4,12 +4,12 @@
 For each offer with `recomendacion ∈ {aplicar, dudar}`, generate a `Draft` using `gpt-4o`.
 
 ## Acceptance criteria
-- [ ] `src/agents/application_writer.py` implements `class ApplicationWriter` with `async def write(self, offer, company, evaluation, profile) -> Draft`.
-- [ ] Structured outputs against `Draft`.
-- [ ] Inputs include the **full user CV** in the system message (cached) — this is the primary use case for prompt caching.
-- [ ] Per-call user message contains offer + dossier summary + evaluation pros/cons + a directive to pick 3-5 most relevant experiences.
-- [ ] Returns the `Draft`. Lint and regeneration handled in Task 04 — this task focuses on the happy path generation.
-- [ ] Updates offer `estado` to `draft_ready` once a valid draft is persisted (saving happens in Task 05).
+- [x] `src/agents/application_writer.py` implements `class ApplicationWriter` with `async def write(self, offer, company, evaluation, profile) -> Draft`.
+- [x] Structured outputs against `Draft`.
+- [x] Inputs include the **full user CV** in the system message (cached) — this is the primary use case for prompt caching.
+- [x] Per-call user message contains offer + dossier summary + evaluation pros/cons + a directive to pick 3-5 most relevant experiences.
+- [x] Returns the `Draft`. Lint and regeneration handled in Task 04 — this task focuses on the happy path generation.
+- [x] Updates offer `estado` to `draft_ready` once a valid draft is persisted (saving happens in Task 05).
 
 ## Files to create / modify
 - `src/agents/application_writer.py`
