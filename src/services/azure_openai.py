@@ -6,7 +6,7 @@ import asyncio
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import structlog
 from openai import APIStatusError, AsyncAzureOpenAI, RateLimitError
@@ -19,6 +19,9 @@ from pydantic import BaseModel
 
 from src.config import get_settings
 from src.exceptions import JobAgentError
+
+if TYPE_CHECKING:
+    from src.services.usage_tracker import UsageTracker
 
 logger = structlog.get_logger(__name__)
 
@@ -91,7 +94,7 @@ class AzureOpenAIClient:
     header.  Cached tokens are always reflected in ``ChatResult.usage.cached_tokens``.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, tracker: UsageTracker | None = None) -> None:
         settings = get_settings()
         self._client = AsyncAzureOpenAI(
             api_key=settings.azure_openai_key,
@@ -103,6 +106,7 @@ class AzureOpenAIClient:
             "mini": settings.azure_openai_deployment_mini,
             "4o": settings.azure_openai_deployment_4o,
         }
+        self._tracker = tracker
 
     def _resolve_deployment(self, key: Literal["mini", "4o"]) -> str:
         return self._deployments[key]
@@ -255,6 +259,11 @@ class AzureOpenAIClient:
             completion_tokens=raw.completion_tokens,
             total_tokens=raw.total_tokens,
         )
+
+        if self._tracker is not None:
+            self._tracker.record(
+                deployment, raw.prompt_tokens, raw.cached_tokens, raw.completion_tokens
+            )
 
         if _usage_tracker is not None:
             _usage_tracker(raw.model, usage)
