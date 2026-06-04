@@ -4,12 +4,12 @@
 Chain the agents into a single per-user pipeline. The orchestrator decides parallelism; agents stay agnostic.
 
 ## Acceptance criteria
-- [ ] `src/orchestrator.py` exposes `class Orchestrator` with:
+- [x] `src/orchestrator.py` exposes `class Orchestrator` with:
   - `async def run_for_user(self, username: str) -> RunResult`
   - `async def run_for_all_users(self) -> list[RunResult]`
-- [ ] Pipeline order: scrape → dedup → filter → research-companies (only for relevant offers) → evaluate (only with company researched) → write-drafts (only when recomendacion ∈ {aplicar, dudar}).
-- [ ] Concurrency: scraping uses `asyncio.gather` across platforms; filtering/research/evaluation/writing run sequentially over offers with bounded concurrency (default 3 in-flight).
-- [ ] `RunResult` aggregates per-stage counts and total tokens; passed to Task 03 for persistence.
+- [x] Pipeline order: scrape → dedup → filter → research-companies (only for relevant offers) → evaluate (only with company researched) → write-drafts (only when recomendacion ∈ {aplicar, dudar}).
+- [x] Concurrency: scraping uses `asyncio.gather` across platforms; filtering/research/evaluation/writing run sequentially over offers with bounded concurrency (default 3 in-flight).
+- [x] `RunResult` aggregates per-stage counts and total tokens; passed to Task 03 for persistence.
 
 ## Files to create / modify
 - `src/orchestrator.py`

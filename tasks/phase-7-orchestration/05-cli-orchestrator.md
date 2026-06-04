@@ -4,11 +4,11 @@
 Single command to run the whole pipeline for one user or all users.
 
 ## Acceptance criteria
-- [ ] `python -m src.cli orchestrator run --user jorge` runs the full pipeline.
-- [ ] `--all-users` iterates all profiles in `config/users/*.yaml` (excluding `.example`).
-- [ ] `--skip <stage>` flag (comma-separated, e.g. `scrape,research`) for re-running only later stages.
-- [ ] Exit code 0 if any user completed successfully; non-zero if all failed.
-- [ ] Printed summary per user and a global summary at the end.
+- [x] `python -m src.cli orchestrator run --user jorge` runs the full pipeline.
+- [x] `--all-users` iterates all profiles in `config/users/*.yaml` (excluding `.example`).
+- [x] `--skip <stage>` flag (comma-separated, e.g. `scrape,research`) for re-running only later stages.
+- [x] Exit code 0 if any user completed successfully; non-zero if all failed.
+- [x] Printed summary per user and a global summary at the end.
 
 ## Files to create / modify
 - `src/cli.py` (replace stub)

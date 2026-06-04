@@ -4,11 +4,11 @@
 Centralized token accounting so we can show a cost estimate per run.
 
 ## Acceptance criteria
-- [ ] `src/services/usage_tracker.py` exposes `class UsageTracker` with `record(deployment, prompt_tokens, cached_tokens, completion_tokens)` and `summary()` returning per-deployment totals.
-- [ ] `AzureOpenAIClient.chat` accepts an injected tracker and records each call's usage.
-- [ ] Costs computed via a `PRICING` constant per 1M tokens (Azure list price snapshot, documented in code with date and link). Reduced rate applied to `cached_tokens`.
-- [ ] Orchestrator instantiates one tracker per run and writes the summary into `run_logs.tokens_consumidos` and `coste_estimado_eur`.
-- [ ] Pricing is editable in one place; tests cover the math.
+- [x] `src/services/usage_tracker.py` exposes `class UsageTracker` with `record(deployment, prompt_tokens, cached_tokens, completion_tokens)` and `summary()` returning per-deployment totals.
+- [x] `AzureOpenAIClient.chat` accepts an injected tracker and records each call's usage.
+- [x] Costs computed via a `PRICING` constant per 1M tokens (Azure list price snapshot, documented in code with date and link). Reduced rate applied to `cached_tokens`.
+- [x] Orchestrator instantiates one tracker per run and writes the summary into `run_logs.tokens_consumidos` and `coste_estimado_eur`.
+- [x] Pricing is editable in one place; tests cover the math.
 
 ## Files to create / modify
 - `src/services/usage_tracker.py`
