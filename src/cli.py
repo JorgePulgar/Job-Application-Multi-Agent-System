@@ -21,6 +21,7 @@ from src.agents.viability_evaluator import ViabilityEvaluator
 from src.db import Company, Offer, OfferEstado, get_session
 from src.db.models import Evaluation, User
 from src.models.evaluation import ViabilityEvaluation
+from src.orchestrator import Orchestrator, RunResult
 from src.services import draft_persistence
 from src.services.azure_openai import AzureOpenAIClient, TokenUsage, register_usage_tracker
 from src.services.profiles import load_profile, upsert_user_row
@@ -649,7 +650,7 @@ def write_drafts(
 
 
 # ---------------------------------------------------------------------------
-# orchestrator group (stub — Phase 7)
+# orchestrator group (Phase 7)
 # ---------------------------------------------------------------------------
 
 
@@ -659,15 +660,81 @@ def orchestrator() -> None:
 
 
 @orchestrator.command("run")
-@click.option("--user", default=None, help="Run pipeline for a single user.")
-@click.option("--all-users", is_flag=True, default=False, help="Run pipeline for all users.")
+@click.option("--user", default=None, help="Username to run pipeline for.")
+@click.option(
+    "--all-users",
+    is_flag=True,
+    default=False,
+    help="Run for all users discovered in config-path.",
+)
+@click.option(
+    "--skip",
+    default="",
+    show_default=False,
+    help="Comma-separated stages to skip: scrape,filter,research,evaluate,write.",
+)
+@click.option(
+    "--concurrency",
+    default=3,
+    show_default=True,
+    type=int,
+    help="Max concurrent LLM calls per stage.",
+)
 @click.pass_obj
-def orchestrator_run(obj: AppContext, user: str | None, all_users: bool) -> None:
+def orchestrator_run(
+    obj: AppContext,
+    user: str | None,
+    all_users: bool,
+    skip: str,
+    concurrency: int,
+) -> None:
     """Run the full job-hunting pipeline (scrape → filter → research → evaluate → draft)."""
     if not user and not all_users:
         click.echo("Provide --user <username> or --all-users.", err=True)
         sys.exit(1)
-    click.echo("not implemented (phase 7)")
+
+    valid_stages = {"scrape", "filter", "research", "evaluate", "write"}
+    skip_stages: frozenset[str] = frozenset(
+        s.strip() for s in skip.split(",") if s.strip() in valid_stages
+    )
+
+    orch = Orchestrator(
+        concurrency=concurrency,
+        skip_stages=skip_stages,
+        config_path=obj.config_path,
+    )
+
+    results: list[RunResult]
+    if user:
+        results = [asyncio.run(orch.run_for_user(user))]
+    else:
+        results = asyncio.run(orch.run_for_all_users())
+
+    _print_run_summary(results)
+
+    if all(not r.success for r in results):
+        sys.exit(1)
+
+
+def _print_run_summary(results: list[RunResult]) -> None:
+    click.echo("\n=== Resultados por usuario ===")
+    for r in results:
+        status = "OK" if r.success else f"FAILED: {r.fatal_error or 'unknown'}"
+        duration = (r.fecha_fin - r.fecha_inicio).total_seconds()
+        click.echo(f"  {r.username}: {status}")
+        click.echo(
+            f"    Scrapeadas: {r.ofertas_scrapeadas}  "
+            f"Filtradas: {r.ofertas_filtradas}  "
+            f"Borradores: {r.drafts_generados}"
+        )
+        click.echo(
+            f"    Errores: {len(r.errores)}  "
+            f"Coste: {r.coste_estimado_eur:.4f} EUR  "
+            f"Duración: {duration:.1f}s"
+        )
+    successful = sum(1 for r in results if r.success)
+    click.echo("==============================")
+    click.echo(f"\nTotal: {successful}/{len(results)} usuario(s) completado(s).\n")
 
 
 # ---------------------------------------------------------------------------
