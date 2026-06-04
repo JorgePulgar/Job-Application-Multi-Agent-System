@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import (
     JSON,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -108,6 +109,7 @@ class Offer(Base):
     hash_unico: Mapped[str] = mapped_column(String(64), nullable=False)
     estado: Mapped[str] = mapped_column(String(32), nullable=False, default=OfferEstado.nueva)
     razon_descarte: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     raw_json: Mapped[Any] = mapped_column(JSON, nullable=True)
 
     user: Mapped[User] = relationship("User", back_populates="offers")
@@ -208,6 +210,8 @@ class RunLog(Base):
     ofertas_relevantes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     borradores_generados: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     errores: Mapped[Any] = mapped_column(JSON, nullable=True)
+    tokens_consumidos: Mapped[Any] = mapped_column(JSON, nullable=True)
+    coste_estimado_eur: Mapped[float | None] = mapped_column(Float, nullable=True)
     estado: Mapped[str] = mapped_column(String(32), nullable=False, default=RunEstado.running)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), default=_now, server_default=func.now()

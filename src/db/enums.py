@@ -13,6 +13,7 @@ class OfferEstado(StrEnum):
     evaluada = "evaluada"
     borrador_generado = "borrador_generado"
     enviada = "enviada"
+    error = "error"
 
 
 class Recomendacion(StrEnum):
