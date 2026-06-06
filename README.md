@@ -137,6 +137,23 @@ caching de prompts reduce el coste del CV/instrucciones estables). El sistema
 envía una alerta por Telegram si una ejecución supera **1,00 €** (configurable
 con `DAILY_COST_ALERT_EUR`).
 
+## Capturas
+
+> Datos de ejemplo ficticios (sin información personal ni empresas reales).
+
+Lista de borradores priorizada por puntuación:
+
+![Lista de borradores](docs/screenshots/drafts.png)
+
+Detalle de un borrador con oferta, dossier de empresa, evaluación y el editor
+con la P.D. opcional:
+
+![Detalle de borrador](docs/screenshots/draft-detail.png)
+
+Historial de aplicaciones con estadísticas:
+
+![Historial](docs/screenshots/history.png)
+
 ## Limitaciones y alcance
 
 - **Flow A (contacto en frío a empresas sin oferta publicada) está fuera de

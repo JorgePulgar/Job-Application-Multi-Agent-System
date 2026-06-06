@@ -53,6 +53,11 @@ flowchart TB
     DB --> API --> DASH --> USER
 ```
 
+La superficie de revisión humana (dashboard) muestra cada borrador junto a la
+oferta, el dossier de empresa y la evaluación, con datos de ejemplo ficticios:
+
+![Detalle de borrador en el dashboard](screenshots/draft-detail.png)
+
 ## Por qué multi-agente y no un solo prompt
 
 Dividir el pipeline en agentes especializados aporta:

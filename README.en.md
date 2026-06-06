@@ -98,6 +98,19 @@ day** (most spend is company research + drafting on `gpt-4o`; filtering uses
 the cheaper `gpt-4o-mini`, and prompt caching trims the stable CV/instructions).
 A Telegram alert fires if a single run exceeds **€1.00** (`DAILY_COST_ALERT_EUR`).
 
+## Screenshots
+
+> Fabricated example data (no personal data, no real companies).
+
+Drafts list, sorted by score:
+
+![Drafts list](docs/screenshots/drafts.png)
+
+Draft detail — offer, company dossier, evaluation, and the editor with the
+optional P.S.:
+
+![Draft detail](docs/screenshots/draft-detail.png)
+
 ## Limitations & scope
 
 - **Flow A (cold outreach to companies with no posted offer) is out of scope.**
