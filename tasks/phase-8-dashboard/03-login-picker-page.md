@@ -4,10 +4,10 @@
 Landing page with one button per user. No real auth in v1.
 
 ## Acceptance criteria
-- [ ] `app/page.tsx` fetches `GET /users` and renders one big card/button per user with their display name.
-- [ ] Selecting a user stores `username` in localStorage and redirects to `/drafts`.
-- [ ] Top-bar user selector reflects the choice on every subsequent page.
-- [ ] Loading and empty states handled gracefully.
+- [x] `app/page.tsx` fetches `GET /users` and renders one big card/button per user with their display name.
+- [x] Selecting a user stores `username` in localStorage and redirects to `/drafts`.
+- [x] Top-bar user selector reflects the choice on every subsequent page.
+- [x] Loading and empty states handled gracefully.
 
 ## Files to create / modify
 - `dashboard/src/app/page.tsx`

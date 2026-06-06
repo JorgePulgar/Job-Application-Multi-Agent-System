@@ -2,10 +2,11 @@
 
 import { useTheme } from "next-themes";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getUsers } from "@/lib/api";
 import type { UserOut } from "@/lib/types";
+import { setCurrentUser, useCurrentUser } from "@/lib/user";
 import { Button } from "@/components/ui/button";
 import { Moon, Sun, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -14,8 +15,7 @@ import { SidebarNav } from "@/components/sidebar-nav";
 export function TopBar() {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
-  const params = useParams();
-  const username = typeof params?.username === "string" ? params.username : null;
+  const username = useCurrentUser();
 
   const [users, setUsers] = useState<UserOut[]>([]);
 
@@ -27,7 +27,10 @@ export function TopBar() {
 
   function handleUserChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const next = e.target.value;
-    if (next) router.push(`/${next}/drafts`);
+    if (next) {
+      setCurrentUser(next);
+      router.push(`/${next}/drafts`);
+    }
   }
 
   return (
