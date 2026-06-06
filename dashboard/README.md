@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dashboard (Next.js)
 
-## Getting Started
+Review UI for the Job Application Multi-Agent System. Reads from the FastAPI
+backend (see [`../api/README.md`](../api/README.md)); it never talks to the
+database directly.
 
-First, run the development server:
+## Install
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> This project uses **pnpm** (v11+). Do not use `npm`/`npx`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Run
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+pnpm dev
+```
 
-## Learn More
+Open <http://localhost:3000>. The landing page lists the configured users;
+pick one to reach `/<username>/drafts`.
 
-To learn more about Next.js, take a look at the following resources:
+The API must be running too (default <http://localhost:8000>) — start it from
+the repo root with `uv run uvicorn api.main:app --reload`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Environment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Variable             | Default                 | Purpose                          |
+| -------------------- | ----------------------- | -------------------------------- |
+| `NEXT_PUBLIC_API_URL`| `http://localhost:8000` | Base URL of the FastAPI backend. |
 
-## Deploy on Vercel
+For local dev the default is fine. For a deployed dashboard (e.g. Vercel), set
+`NEXT_PUBLIC_API_URL` to the public API URL. Create `dashboard/.env.local` to
+override locally:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Scripts
+
+| Command       | Description                       |
+| ------------- | --------------------------------- |
+| `pnpm dev`    | Start the dev server (port 3000). |
+| `pnpm build`  | Production build.                 |
+| `pnpm start`  | Serve the production build.       |
+| `pnpm lint`   | Run ESLint.                       |
