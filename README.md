@@ -154,6 +154,14 @@ Historial de aplicaciones con estadísticas:
 
 ![Historial](docs/screenshots/history.png)
 
+## Ejemplos de borradores
+
+Ejemplos anonimizados del output (empresas e identidad ficticias):
+
+- [ML Engineer — NeuralForge](docs/examples/01-ml-engineer-neuralforge.md) (borrador completo)
+- [Data Scientist — Helios Health](docs/examples/02-data-scientist-helios.md) (borrador completo)
+- [`needs_manual_context`](docs/examples/03-needs-manual-context.md) (cuándo el sistema NO redacta)
+
 ## Limitaciones y alcance
 
 - **Flow A (contacto en frío a empresas sin oferta publicada) está fuera de

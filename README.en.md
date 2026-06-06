@@ -111,6 +111,14 @@ optional P.S.:
 
 ![Draft detail](docs/screenshots/draft-detail.png)
 
+## Example drafts
+
+Anonymised output samples (fictional companies + identity):
+
+- [ML Engineer — NeuralForge](docs/examples/01-ml-engineer-neuralforge.md) (full draft)
+- [Data Scientist — Helios Health](docs/examples/02-data-scientist-helios.md) (full draft)
+- [`needs_manual_context`](docs/examples/03-needs-manual-context.md) (when the system declines to write)
+
 ## Limitations & scope
 
 - **Flow A (cold outreach to companies with no posted offer) is out of scope.**
