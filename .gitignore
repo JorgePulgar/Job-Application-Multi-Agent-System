@@ -24,6 +24,9 @@ config/users/*.yaml
 # Env
 .env
 
+# Local-only demo seeder (kept, not committed)
+scripts/seed_demo.py
+
 # Node / Next.js
 node_modules/
 .next/
