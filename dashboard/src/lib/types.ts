@@ -20,6 +20,7 @@ export interface DraftListItem {
   offer_url: string | null;
   offer_estado: string;
   company_nombre: string | null;
+  company_sector: string | null;
   puntuacion: number | null;
   recomendacion: string | null;
 }

@@ -46,6 +46,7 @@ export function getDrafts(
     state?: string;
     sort?: string;
     platform?: string;
+    sector?: string;
     recomendacion?: string;
     page?: number;
     per_page?: number;
@@ -55,6 +56,7 @@ export function getDrafts(
   if (params?.state) q.set("state", params.state);
   if (params?.sort) q.set("sort", params.sort);
   if (params?.platform) q.set("platform", params.platform);
+  if (params?.sector) q.set("sector", params.sector);
   if (params?.recomendacion) q.set("recomendacion", params.recomendacion);
   if (params?.page) q.set("page", String(params.page));
   if (params?.per_page) q.set("per_page", String(params.per_page));

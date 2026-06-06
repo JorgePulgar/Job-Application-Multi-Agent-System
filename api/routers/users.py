@@ -34,6 +34,7 @@ def list_drafts(
     state: str | None = Query(default=None),
     sort: str = Query(default="created_at"),
     platform: str | None = Query(default=None),
+    sector: str | None = Query(default=None),
     recomendacion: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
@@ -57,11 +58,15 @@ def list_drafts(
         stmt = stmt.where(Draft.estado == real_state)
     if platform is not None:
         stmt = stmt.where(Offer.fuente == platform)
+    if sector is not None:
+        stmt = stmt.where(Company.sector == sector)
     if recomendacion is not None:
         stmt = stmt.where(Evaluation.recomendacion == recomendacion)
 
     if sort == "score":
         stmt = stmt.order_by(Evaluation.puntuacion.desc().nulls_last())
+    elif sort == "company":
+        stmt = stmt.order_by(func.coalesce(Company.nombre, Offer.empresa).asc())
     else:
         stmt = stmt.order_by(Draft.created_at.desc())
 
@@ -85,6 +90,7 @@ def list_drafts(
             offer_url=offer.url,
             offer_estado=offer.estado,
             company_nombre=company.nombre if company else None,
+            company_sector=company.sector if company else None,
             puntuacion=evaluation.puntuacion if evaluation else None,
             recomendacion=evaluation.recomendacion if evaluation else None,
         )

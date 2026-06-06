@@ -37,6 +37,7 @@ class DraftListItem(BaseModel):
     offer_url: str | None
     offer_estado: str
     company_nombre: str | None
+    company_sector: str | None
     puntuacion: int | None
     recomendacion: str | None
 
