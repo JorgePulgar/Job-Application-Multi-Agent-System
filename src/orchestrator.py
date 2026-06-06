@@ -23,10 +23,11 @@ from src.db.base import get_session
 from src.db.enums import OfferEstado, RunEstado
 from src.db.models import Company, Evaluation, Offer, RunLog, User
 from src.models.evaluation import ViabilityEvaluation
-from src.services import draft_persistence
+from src.services import draft_persistence, telegram
 from src.services.azure_openai import AzureOpenAIClient
 from src.services.profiles import load_profile, upsert_user_row
 from src.services.scrape_runner import run_scrape
+from src.services.telegram import escape_markdown_v2
 from src.services.usage_tracker import UsageTracker
 
 log = structlog.get_logger(__name__)
@@ -45,6 +46,10 @@ class RunResult:
     ofertas_scrapeadas: int
     ofertas_filtradas: int
     drafts_generados: int
+    ofertas_descartadas: int = 0
+    ofertas_investigadas: int = 0
+    ofertas_evaluadas: int = 0
+    drafts_manual_context: int = 0
     errores: list[dict[str, Any]] = field(default_factory=list)
     tokens_consumidos: dict[str, Any] = field(default_factory=dict)
     coste_estimado_eur: float = 0.0
@@ -200,7 +205,11 @@ class Orchestrator:
         errors: list[dict[str, Any]] = []
         scraped = 0
         filtered = 0
+        discarded = 0
+        researched = 0
+        evaluated = 0
         draft_count: list[int] = [0]
+        manual_count: list[int] = [0]
         fatal: str | None = None
         fecha_fin = fecha_inicio
 
@@ -234,6 +243,7 @@ class Orchestrator:
 
                     await run_per_offer("filter", nueva, _do_filter, errors, self._concurrency)
                     filtered = sum(1 for o in nueva if o.estado == OfferEstado.filtrada)
+                    discarded = sum(1 for o in nueva if o.estado == OfferEstado.descartada)
                     log.info("stage_done", stage="filter", username=username, count=filtered)
 
                 # --- Stage 3: Research companies ---
@@ -286,6 +296,7 @@ class Orchestrator:
                                 )
 
                     await asyncio.gather(*[_do_research(n) for n in unique_names])
+                    researched = sum(1 for o in filtrada if o.estado == OfferEstado.investigada)
                     log.info(
                         "stage_done",
                         stage="research",
@@ -314,6 +325,7 @@ class Orchestrator:
                         await eval_agent.evaluate(offer, co_row, profile)
 
                     await run_per_offer("evaluate", investig, _do_eval, errors, self._concurrency)
+                    evaluated = sum(1 for o in investig if o.estado == OfferEstado.evaluada)
                     log.info("stage_done", stage="evaluate", username=username)
 
                 # --- Stage 5: Write drafts ---
@@ -340,6 +352,8 @@ class Orchestrator:
                         draft = await writer.write(offer, co_row, evaluation, profile)
                         draft_persistence.save_draft(draft, offer, profile, session)
                         draft_count[0] += 1
+                        if draft.needs_manual_context:
+                            manual_count[0] += 1
 
                     await run_per_offer("write", evaluada, _do_write, errors, self._concurrency)
                     log.info(
@@ -397,6 +411,10 @@ class Orchestrator:
             ofertas_scrapeadas=scraped,
             ofertas_filtradas=filtered,
             drafts_generados=draft_count[0],
+            ofertas_descartadas=discarded,
+            ofertas_investigadas=researched,
+            ofertas_evaluadas=evaluated,
+            drafts_manual_context=manual_count[0],
             errores=errors,
             tokens_consumidos=tracker.summary(),
             coste_estimado_eur=tracker.total_cost_eur(),
@@ -405,7 +423,7 @@ class Orchestrator:
         )
 
     async def run_for_all_users(self) -> list[RunResult]:
-        """Run the pipeline sequentially for every user discovered in ``config_path``.
+        """Run the pipeline sequentially for every user, then post a Telegram summary.
 
         Returns:
             One ``RunResult`` per user, in alphabetical username order.
@@ -414,4 +432,74 @@ class Orchestrator:
         for username in self._discover_usernames():
             result = await self.run_for_user(username)
             results.append(result)
+
+        if results:
+            await telegram.send_message(format_summary(results))
         return results
+
+
+def _total_tokens(result: RunResult) -> int:
+    """Sum total_tokens across all deployments in a run's usage summary."""
+    return sum(
+        int(v.get("total_tokens", 0))
+        for v in result.tokens_consumidos.values()
+        if isinstance(v, dict)
+    )
+
+
+def format_summary(results: list[RunResult]) -> str:
+    """Render a MarkdownV2-safe Telegram summary of one workflow run.
+
+    Global totals appear first, followed by a per-user breakdown (scrapeados,
+    relevantes vs descartados, investigados, evaluados, drafts incl.
+    ``needs_manual_context``, tokens, and estimated cost in EUR).
+
+    Args:
+        results: One ``RunResult`` per user from this run.
+
+    Returns:
+        A MarkdownV2-escaped message body ready for :func:`telegram.send_message`.
+    """
+    e = escape_markdown_v2
+
+    g_scraped = sum(r.ofertas_scrapeadas for r in results)
+    g_relevant = sum(r.ofertas_filtradas for r in results)
+    g_discarded = sum(r.ofertas_descartadas for r in results)
+    g_researched = sum(r.ofertas_investigadas for r in results)
+    g_evaluated = sum(r.ofertas_evaluadas for r in results)
+    g_drafts = sum(r.drafts_generados for r in results)
+    g_manual = sum(r.drafts_manual_context for r in results)
+    g_tokens = sum(_total_tokens(r) for r in results)
+    g_cost = sum(r.coste_estimado_eur for r in results)
+
+    lines: list[str] = [
+        f"*{e('Resumen diario job-agent')}*",
+        "",
+        f"*{e('Totales')}*",
+        e(f"Scrapeadas: {g_scraped} · Relevantes: {g_relevant} · Descartadas: {g_discarded}"),
+        e(f"Investigadas: {g_researched} · Evaluadas: {g_evaluated}"),
+        e(f"Drafts: {g_drafts} (manual: {g_manual})"),
+        e(f"Tokens: {g_tokens} · Coste: {g_cost:.4f} EUR"),
+    ]
+
+    for r in results:
+        status = "OK" if r.success else "FALLO"
+        lines.append("")
+        lines.append(f"*{e(r.username)}* {e(f'[{status}]')}")
+        lines.append(
+            e(
+                f"Scrapeadas: {r.ofertas_scrapeadas} · Relevantes: {r.ofertas_filtradas} "
+                f"· Descartadas: {r.ofertas_descartadas}"
+            )
+        )
+        lines.append(
+            e(f"Investigadas: {r.ofertas_investigadas} · Evaluadas: {r.ofertas_evaluadas}")
+        )
+        lines.append(e(f"Drafts: {r.drafts_generados} (manual: {r.drafts_manual_context})"))
+        lines.append(e(f"Tokens: {_total_tokens(r)} · Coste: {r.coste_estimado_eur:.4f} EUR"))
+        if r.errores:
+            lines.append(e(f"Errores: {len(r.errores)}"))
+        if r.fatal_error:
+            lines.append(e(f"Fatal: {r.fatal_error}"))
+
+    return "\n".join(lines)
