@@ -1,0 +1,76 @@
+name: daily-run
+
+# Runs the full job-hunting pipeline once a day.
+#
+# Schedule note (DST drift): GitHub Actions cron is always in UTC and does NOT
+# follow daylight saving. We use a single 05:00 UTC trigger, which lands at:
+#   * 06:00 CET  in winter (Europe/Madrid = UTC+1)
+#   * 07:00 CEST in summer (Europe/Madrid = UTC+2)
+# This deliberately favours the "7 AM Madrid" target in summer. We intentionally
+# do NOT add a second cron entry to chase DST — a one-hour winter drift is
+# acceptable and a dual schedule would risk double runs around the switch.
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no DB writes, no external calls)"
+        type: boolean
+        default: false
+
+# Never let two pipeline runs overlap (they share the same SQLite DB).
+concurrency:
+  group: daily-run
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    # All secrets from CLAUDE.md §5. Set them in repo Settings → Secrets.
+    env:
+      AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+      AZURE_OPENAI_KEY: ${{ secrets.AZURE_OPENAI_KEY }}
+      AZURE_OPENAI_API_VERSION: ${{ secrets.AZURE_OPENAI_API_VERSION }}
+      AZURE_OPENAI_DEPLOYMENT_MINI: ${{ secrets.AZURE_OPENAI_DEPLOYMENT_MINI }}
+      AZURE_OPENAI_DEPLOYMENT_4O: ${{ secrets.AZURE_OPENAI_DEPLOYMENT_4O }}
+      BING_SEARCH_KEY: ${{ secrets.BING_SEARCH_KEY }}
+      BING_SEARCH_ENDPOINT: ${{ secrets.BING_SEARCH_ENDPOINT }}
+      ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
+      ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+      JOOBLE_API_KEY: ${{ secrets.JOOBLE_API_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Install Playwright Chromium
+        run: uv run playwright install --with-deps chromium
+
+      - name: Apply database migrations
+        run: uv run alembic upgrade head
+
+      # The orchestrator posts the Telegram run summary at the end of
+      # run_for_all_users (Phase 9 / Task 03); the TELEGRAM_* env above wires it.
+      # The --dry-run flag is only set via manual workflow_dispatch.
+      - name: Run pipeline
+        run: uv run python -m src.cli ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }} orchestrator run --all-users
