@@ -3,6 +3,23 @@
 Operational notes for running and maintaining the Job Application Multi-Agent
 System in production (GitHub Actions).
 
+## ⚠️ Pending manual verification (Phase 9)
+
+Phase 9 (automation) is code-complete and tested in CI/unit, but **not yet
+verified live** — it needs real credentials. Before relying on the daily
+automation, do this once:
+
+1. Add the 12 secrets from CLAUDE.md §5 in **Settings → Secrets and variables
+   → Actions** (incl. `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`).
+2. **Actions → daily-run → Run workflow**, first with the **Dry run** box
+   ticked, then a real run.
+3. Confirm: the workflow goes green, a **`data`** branch appears holding
+   `state.db`, and a Telegram **run summary** message arrives (plus a cost
+   alert only if the run cost exceeds `DAILY_COST_ALERT_EUR`).
+
+Until this is done, the scheduled run will fail (missing secrets / no user
+profiles on CI).
+
 ## Runtime data persistence (the `data` branch)
 
 The daily run is stateful: it builds on the previous day's SQLite database and
