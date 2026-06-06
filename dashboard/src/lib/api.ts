@@ -3,6 +3,7 @@
 import type {
   DraftDetail,
   DraftListResponse,
+  DraftPatchRequest,
   HistoryResponse,
   MarkSentRequest,
   MarkSentResponse,
@@ -72,6 +73,16 @@ export function getDrafts(
 
 export function getDraft(draftId: number): Promise<DraftDetail> {
   return request<DraftDetail>(`/drafts/${draftId}`);
+}
+
+export function patchDraft(
+  draftId: number,
+  body: DraftPatchRequest,
+): Promise<DraftDetail> {
+  return request<DraftDetail>(`/drafts/${draftId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
 }
 
 export function markSent(

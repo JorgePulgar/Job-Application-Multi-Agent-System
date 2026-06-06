@@ -126,6 +126,14 @@ class DraftDetail(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class DraftPatchRequest(BaseModel):
+    """Body for PATCH /drafts/{id}. Only provided fields are updated."""
+
+    asunto: str | None = None
+    cuerpo_email: str | None = None
+    carta_presentacion: str | None = None
+
+
 class MarkSentRequest(BaseModel):
     """Body for POST /drafts/{id}/mark-sent."""
 

@@ -243,6 +243,36 @@ def test_get_draft_not_found(client: TestClient) -> None:
 
 
 # ---------------------------------------------------------------------------
+# PATCH /drafts/{id}
+# ---------------------------------------------------------------------------
+
+
+def test_patch_draft_updates_fields(client: TestClient, seeded_db: Session) -> None:
+    draft = _get_draft(seeded_db)
+    resp = client.patch(
+        f"/drafts/{draft.id}",
+        json={"asunto": "Nuevo asunto", "cuerpo_email": "Cuerpo editado"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["asunto"] == "Nuevo asunto"
+    assert body["cuerpo_email"] == "Cuerpo editado"
+    # Unspecified field is left untouched.
+    assert body["carta_presentacion"] == draft.carta_presentacion
+
+
+def test_patch_draft_partial_leaves_others(client: TestClient, seeded_db: Session) -> None:
+    draft = _get_draft(seeded_db)
+    resp = client.patch(f"/drafts/{draft.id}", json={"cuerpo_email": "Solo cuerpo"})
+    assert resp.status_code == 200
+    assert resp.json()["asunto"] == "Candidatura ML Engineer"
+
+
+def test_patch_draft_not_found(client: TestClient) -> None:
+    assert client.patch("/drafts/99999", json={"asunto": "x"}).status_code == 404
+
+
+# ---------------------------------------------------------------------------
 # POST /drafts/{id}/mark-sent
 # ---------------------------------------------------------------------------
 

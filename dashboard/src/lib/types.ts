@@ -54,6 +54,20 @@ export interface CompanyOut {
   dossier_json: unknown;
 }
 
+/** Shape of `companies.dossier_json` (CompanyResearcher output). */
+export interface CompanyDossier {
+  sector: string;
+  tamano: string;
+  ubicacion_hq: string;
+  descripcion: string;
+  stack_tecnologico: string[];
+  cultura_notas: string[];
+  red_flags_detectadas: string[];
+  productos_o_servicios: string[];
+  equipo_ai_detectado: boolean;
+  fuentes: string[];
+}
+
 export interface EvaluationOut {
   id: number;
   puntuacion: number;
@@ -85,6 +99,12 @@ export interface DraftDetail {
   company: CompanyOut | null;
   evaluation: EvaluationOut | null;
   application: ApplicationOut | null;
+}
+
+export interface DraftPatchRequest {
+  asunto?: string;
+  cuerpo_email?: string;
+  carta_presentacion?: string;
 }
 
 export interface MarkSentRequest {

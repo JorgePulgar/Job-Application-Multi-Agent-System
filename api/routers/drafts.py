@@ -15,6 +15,7 @@ from api.schemas import (
     ApplicationOut,
     CompanyOut,
     DraftDetail,
+    DraftPatchRequest,
     EvaluationOut,
     MarkSentRequest,
     MarkSentResponse,
@@ -85,10 +86,7 @@ def _app_out(app: Application) -> ApplicationOut:
     )
 
 
-@router.get("/{draft_id}", response_model=DraftDetail)
-def get_draft(draft_id: int, db: DbSession) -> DraftDetail:
-    """Return full draft detail joined with offer, company, evaluation, application."""
-    draft = _get_draft_or_404(draft_id, db)
+def _draft_detail(draft: Draft) -> DraftDetail:
     offer: Offer = draft.offer
     company: Company | None = offer.company
     evaluation: Evaluation | None = offer.evaluation
@@ -108,6 +106,28 @@ def get_draft(draft_id: int, db: DbSession) -> DraftDetail:
         evaluation=_eval_out(evaluation) if evaluation else None,
         application=_app_out(application) if application else None,
     )
+
+
+@router.get("/{draft_id}", response_model=DraftDetail)
+def get_draft(draft_id: int, db: DbSession) -> DraftDetail:
+    """Return full draft detail joined with offer, company, evaluation, application."""
+    draft = _get_draft_or_404(draft_id, db)
+    return _draft_detail(draft)
+
+
+@router.patch("/{draft_id}", response_model=DraftDetail)
+def patch_draft(draft_id: int, body: DraftPatchRequest, db: DbSession) -> DraftDetail:
+    """Update the editable draft fields (subject, email body, cover letter).
+
+    Only fields present in the request body are modified. The P.S. disclosure
+    text is never sent here — it stays client-side so the agent never sees it.
+    """
+    draft = _get_draft_or_404(draft_id, db)
+    updates = body.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(draft, field, value)
+    db.flush()
+    return _draft_detail(draft)
 
 
 @router.post("/{draft_id}/mark-sent", response_model=MarkSentResponse, status_code=201)
