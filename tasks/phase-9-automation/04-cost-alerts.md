@@ -4,10 +4,15 @@
 If a daily run's estimated cost exceeds a threshold, send a second Telegram message clearly flagged as an alert.
 
 ## Acceptance criteria
-- [ ] Setting `DAILY_COST_ALERT_EUR` (default `1.00`) in `Settings`.
-- [ ] After the summary message, if any user's `coste_estimado_eur` or the global total exceeds the threshold, send a follow-up message titled `⚠️ ALERTA DE COSTE` with the offending breakdown.
-- [ ] Alert message includes a hint about cause (e.g. "muchos drafts regenerados — revisa lint failures").
-- [ ] Threshold respected per-run, not cumulative.
+- [x] Setting `DAILY_COST_ALERT_EUR` (default `1.00`) in `Settings`.
+- [x] After the summary message, if any user's `coste_estimado_eur` or the global total exceeds the threshold, send a follow-up message titled `⚠️ ALERTA DE COSTE` with the offending breakdown.
+- [x] Alert message includes a hint about cause (e.g. "muchos drafts regenerados — revisa lint failures").
+- [x] Threshold respected per-run, not cumulative.
+
+## Implementation notes
+- `Settings.daily_cost_alert_eur` (env `DAILY_COST_ALERT_EUR`, default 1.00).
+- `format_cost_alert(results, threshold)` returns the alert or `None`; fires when the global run total OR any single user exceeds the threshold (per-run, not cumulative). `run_for_all_users` sends it after the summary, via `_cost_alert_threshold()` which reads the setting with a safe fallback.
+- Tests cover below/above-threshold (global + single-user) and that exactly one alert is sent above threshold, none below.
 
 ## Files to create / modify
 - `src/orchestrator.py` (extend)

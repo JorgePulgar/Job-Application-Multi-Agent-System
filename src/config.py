@@ -53,6 +53,12 @@ class Settings(BaseSettings):
         default=30, description="Days before a cached company dossier is considered stale"
     )
 
+    # Cost alerting
+    daily_cost_alert_eur: float = Field(
+        default=1.00,
+        description="Per-run estimated cost (EUR) above which a Telegram alert is sent",
+    )
+
     # Logging
     log_json: bool = Field(
         default=False, description="Emit JSON logs (true in CI) instead of pretty console output"

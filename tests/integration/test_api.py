@@ -346,10 +346,13 @@ def test_regenerate_draft(client: TestClient, seeded_db: Session) -> None:
         needs_manual_context=False,
     )
 
-    with patch("src.services.azure_openai.AzureOpenAIClient") as MockClient, patch(
-        "src.agents.application_writer.ApplicationWriter.write",
-        new_callable=AsyncMock,
-    ) as mock_write:
+    with (
+        patch("src.services.azure_openai.AzureOpenAIClient") as MockClient,
+        patch(
+            "src.agents.application_writer.ApplicationWriter.write",
+            new_callable=AsyncMock,
+        ) as mock_write,
+    ):
         MockClient.return_value = MagicMock()
         mock_write.return_value = mock_result
         resp = client.post(f"/drafts/{draft.id}/regenerate")

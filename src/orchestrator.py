@@ -19,6 +19,7 @@ from src.agents.application_writer import ApplicationWriter
 from src.agents.company_researcher import CompanyResearcher
 from src.agents.offer_filter import OfferFilter
 from src.agents.viability_evaluator import ViabilityEvaluator
+from src.config import get_settings
 from src.db.base import get_session
 from src.db.enums import OfferEstado, RunEstado
 from src.db.models import Company, Evaluation, Offer, RunLog, User
@@ -435,6 +436,9 @@ class Orchestrator:
 
         if results:
             await telegram.send_message(format_summary(results))
+            alert = format_cost_alert(results, _cost_alert_threshold())
+            if alert is not None:
+                await telegram.send_message(alert)
         return results
 
 
@@ -502,4 +506,61 @@ def format_summary(results: list[RunResult]) -> str:
         if r.fatal_error:
             lines.append(e(f"Fatal: {r.fatal_error}"))
 
+    return "\n".join(lines)
+
+
+def _cost_alert_threshold() -> float:
+    """Return the per-run cost alert threshold, defaulting safely if config fails."""
+    try:
+        return get_settings().daily_cost_alert_eur
+    except Exception:
+        return 1.00
+
+
+def format_cost_alert(results: list[RunResult], threshold: float) -> str | None:
+    """Build a cost-alert message if this run breached the per-run threshold.
+
+    The threshold is evaluated per run (not cumulative): an alert fires when the
+    global total or any single user's estimated cost exceeds ``threshold``.
+
+    Args:
+        results: One ``RunResult`` per user from this run.
+        threshold: Per-run cost ceiling in EUR.
+
+    Returns:
+        A MarkdownV2-escaped alert body, or ``None`` when no threshold is breached.
+    """
+    global_cost = sum(r.coste_estimado_eur for r in results)
+    offenders = [r for r in results if r.coste_estimado_eur > threshold]
+
+    if global_cost <= threshold and not offenders:
+        return None
+
+    e = escape_markdown_v2
+    lines: list[str] = [
+        f"*{e('⚠️ ALERTA DE COSTE')}*",
+        "",
+        e(f"Umbral por ejecución: {threshold:.2f} EUR"),
+        e(f"Coste global de la ejecución: {global_cost:.4f} EUR"),
+    ]
+
+    if offenders:
+        lines.append("")
+        lines.append(f"*{e('Usuarios por encima del umbral')}*")
+        for r in offenders:
+            lines.append(
+                e(
+                    f"- {r.username}: {r.coste_estimado_eur:.4f} EUR "
+                    f"({r.drafts_generados} drafts, manual {r.drafts_manual_context}, "
+                    f"{_total_tokens(r)} tokens)"
+                )
+            )
+
+    lines.append("")
+    lines.append(
+        e(
+            "Posible causa: muchos drafts regenerados (revisa lint failures) "
+            "o un volumen de ofertas inusual. Revisa run_logs."
+        )
+    )
     return "\n".join(lines)
