@@ -4,10 +4,14 @@
 Cut a versioned tag so the v1 milestone is preserved for portfolio purposes.
 
 ## Acceptance criteria
-- [ ] Tag `v1.0.0` on the commit that closes Phase 10 / Task 04.
-- [ ] Tag message: "v1.0.0 — Flow B end-to-end. Human-in-the-loop, daily orchestration, dashboard."
-- [ ] Push tag.
-- [ ] GitHub Release created with the contents of `docs/architecture.md`'s "Visión general" as the body and embedded screenshots.
+- [x] Tag `v1.0.0` on the commit that closes Phase 10 / Task 04. (on `34fbeb6`)
+- [x] Tag message: "v1.0.0 — Flow B end-to-end. Human-in-the-loop, daily orchestration, dashboard."
+- [x] Push tag.
+- [ ] GitHub Release created with the contents of `docs/architecture.md`'s "Visión general" as the body and embedded screenshots. **Pending user action** — `gh` CLI is not installed in this environment and no API token is available, so the Release must be created by Jorge (see the ready-to-paste body in the chat / `gh release create` command).
+
+## Implementation notes
+- Tag is annotated, on `34fbeb6` (the task-04 closing commit). Pushed to origin.
+- Release creation requires `gh` or a GitHub token (neither available here). Body prepared from architecture.md "Visión general" + screenshots embedded via raw URLs pinned to the `v1.0.0` tag.
 
 ## Files to create / modify
 - (None — repo state operations only)
