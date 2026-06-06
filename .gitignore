@@ -27,6 +27,9 @@ config/users/*.yaml
 # Local-only demo seeder (kept, not committed)
 scripts/seed_demo.py
 
+# Linked worktree used by sync_data_branch.sh
+.databranch/
+
 # Node / Next.js
 node_modules/
 .next/
