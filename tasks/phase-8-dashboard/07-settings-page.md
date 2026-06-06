@@ -4,9 +4,9 @@
 Display the user's YAML profile as a read-only summary, so the user can verify what the agents are seeing.
 
 ## Acceptance criteria
-- [ ] `app/settings/page.tsx` fetches `GET /users/{username}/profile` and renders sections: Datos personales, Objetivos (roles + sectores + stack), Idiomas, Preferencias (modalidad, ubicación, salario mínimo), Red flags, Resumen CV, Experiencias, Educación, Certificaciones.
-- [ ] Note at the top: "Para editar, modifica `config/users/<username>.yaml` y vuelve a ejecutar `profile load`."
-- [ ] No edit affordances. Read-only by design for v1.
+- [x] `app/settings/page.tsx` fetches `GET /users/{username}/profile` and renders sections: Datos personales, Objetivos (roles + sectores + stack), Idiomas, Preferencias (modalidad, ubicación, salario mínimo), Red flags, Resumen CV, Experiencias, Educación, Certificaciones.
+- [x] Note at the top: "Para editar, modifica `config/users/<username>.yaml` y vuelve a ejecutar `profile load`."
+- [x] No edit affordances. Read-only by design for v1.
 
 ## Files to create / modify
 - `dashboard/src/app/settings/page.tsx`
