@@ -131,3 +131,18 @@ Lifts the v1 "Spain + Spanish only" constraint: per-user target countries and Sp
 - [ ] [04 — Locale-aware prompt loader + English prompts](phase-12-multilingual/04-locale-aware-prompts.md)
 - [ ] [05 — Draft language selection](phase-12-multilingual/05-draft-language-selection.md)
 - [ ] [06 — Multilingual / multi-country tests](phase-12-multilingual/06-tests.md)
+
+---
+
+## Phase EXTRA — Public Repo Readiness (optional, off the main track)
+
+**Not part of v1/v1.1/v2.** Repo stays **private for personal use** by default.
+Run this phase ONLY if/when Jorge decides to make the repo public. Order matters:
+the secret/PII audit (Task 01) is a hard gate before anything else, and the repo
+must not be flipped public until it passes.
+
+- [ ] [01 — Secret & PII audit before going public](phase-extra-public-repo/01-secret-pii-audit.md)
+- [ ] [02 — LICENSE + repo metadata](phase-extra-public-repo/02-license-and-metadata.md)
+- [ ] [03 — Public-facing README pass + badges](phase-extra-public-repo/03-public-readme-pass.md)
+- [ ] [04 — GitHub Release v1.0.0](phase-extra-public-repo/04-github-release.md)
+- [ ] [05 — Flip repo to public](phase-extra-public-repo/05-flip-public.md)

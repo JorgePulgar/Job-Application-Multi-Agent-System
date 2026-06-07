@@ -7,7 +7,7 @@ Cut a versioned tag so the v1 milestone is preserved for portfolio purposes.
 - [x] Tag `v1.0.0` on the commit that closes Phase 10 / Task 04. (on `34fbeb6`)
 - [x] Tag message: "v1.0.0 — Flow B end-to-end. Human-in-the-loop, daily orchestration, dashboard."
 - [x] Push tag.
-- [ ] GitHub Release created with the contents of `docs/architecture.md`'s "Visión general" as the body and embedded screenshots. **Pending user action** — `gh` CLI is not installed in this environment and no API token is available, so the Release must be created by Jorge (see the ready-to-paste body in the chat / `gh release create` command).
+- [x] GitHub Release created with the contents of `docs/architecture.md`'s "Visión general" as the body and embedded screenshots. **Skipped — repo stays private for personal use; the annotated `v1.0.0` tag already preserves the milestone.** Release + public-repo prep deferred to `phase-extra-public-repo/` (run only if/when going public).
 
 ## Implementation notes
 - Tag is annotated, on `34fbeb6` (the task-04 closing commit). Pushed to origin.
