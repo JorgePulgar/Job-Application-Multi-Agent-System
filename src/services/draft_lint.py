@@ -17,11 +17,13 @@ import hashlib
 import re
 import unicodedata
 from dataclasses import dataclass, field
+from typing import Literal
 
 import structlog
 
 from src.models.company import CompanyDossier
 from src.models.draft import Draft
+from src.models.fit import CoverLetterDraft
 
 logger = structlog.get_logger(__name__)
 
@@ -81,6 +83,44 @@ _PROHIBITED_RAW: tuple[str, ...] = (
     "indeed",
 )
 
+# English banned-cliché list (Phase 10.5). The combined list above is applied to
+# Spanish drafts; English drafts use this list: the English AI-tells plus the
+# extra clichés the graph draft node must reject.
+_PROHIBITED_EN_RAW: tuple[str, ...] = (
+    "leverage",
+    "robust",
+    "seamless",
+    "pivotal",
+    "crucial",
+    "underscore",
+    "showcase",
+    "delve",
+    "landscape",
+    "journey",
+    "unlock",
+    "harness",
+    "embark",
+    "illuminate",
+    "tapestry",
+    "realm",
+    "passionate",
+    "fast-paced",
+    "results-driven",
+    "synergy",
+    "ultimately",
+    "indeed",
+    # extra clichés mandated by Phase 10.5
+    "team player",
+    "results-oriented",
+    "results oriented",
+    "go-getter",
+    "go getter",
+    "hit the ground running",
+    "game changer",
+    "think outside the box",
+    "self-starter",
+)
+
 # AI-disclosure patterns: target the *claim that the message was AI-written*,
 # not a candidate legitimately describing AI/ML work.
 _AI_DISCLOSURE_PATTERNS: tuple[re.Pattern[str], ...] = (
@@ -104,6 +144,25 @@ def _fold(text: str) -> str:
 
 _PROHIBITED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
     (raw, re.compile(rf"\b{re.escape(_fold(raw))}\b")) for raw in _PROHIBITED_RAW
+)
+
+_PROHIBITED_EN_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
+    (raw, re.compile(rf"\b{re.escape(_fold(raw))}\b")) for raw in _PROHIBITED_EN_RAW
+)
+
+# English AI-disclosure patterns (the patterns above are Spanish).
+_AI_DISCLOSURE_EN_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"\b(written|generated|drafted|created|composed|produced)\s+(by|with|using)\s+"
+        r"(an?\s+)?(ai\b|a\.i\.|artificial intelligence|llm|bot|chatbot|assistant|agent|"
+        r"language model)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"with\s+the\s+(help|assistance)\s+of\s+(an?\s+)?(ai\b|artificial intelligence)",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\bai[-\s]generated\b", re.IGNORECASE),
 )
 
 
@@ -227,3 +286,56 @@ def lint(draft: Draft, dossier: CompanyDossier | None, empresa: str) -> LintResu
         body_hash=body_hash(draft.email_body),
     )
     return result
+
+
+def lint_cover_letter(
+    draft: CoverLetterDraft,
+    *,
+    dossier: CompanyDossier | None,
+    empresa: str,
+    language: Literal["es", "en"],
+) -> LintResult:
+    """Lint a Phase 10.5 ``CoverLetterDraft`` (language-aware).
+
+    Reuses the v1 dash, specificity, and AI-disclosure checks, and selects the
+    prohibited-words list by language: the combined list for Spanish drafts, the
+    English banned-cliché list for English drafts. The AI-disclosure check runs
+    both languages' patterns so a disclosure in either language is caught.
+
+    Args:
+        draft: The generated cover-letter draft.
+        dossier: Company research dossier, or ``None`` if unavailable.
+        empresa: Company name (the specificity check needs it).
+        language: Offer/draft language driving the prohibited-words list.
+
+    Returns:
+        A ``LintResult``.
+    """
+    text = f"{draft.subject}\n{draft.body}"
+    text_folded = _fold(text)
+    patterns = _PROHIBITED_EN_PATTERNS if language == "en" else _PROHIBITED_PATTERNS
+
+    issues: list[str] = [
+        f"palabra prohibida: '{raw}'" for raw, pattern in patterns if pattern.search(text_folded)
+    ]
+    issues += _check_dashes(text)
+    issues += _check_specificity(_fold(draft.body), dossier, empresa)
+    issues += _check_ai_disclosure_multilang(draft.body)
+
+    result = LintResult(ok=not issues, issues=issues)
+    logger.info(
+        "draft_lint_cover_letter",
+        ok=result.ok,
+        issues=result.issues,
+        language=language,
+        body_hash=body_hash(draft.body),
+    )
+    return result
+
+
+def _check_ai_disclosure_multilang(body: str) -> list[str]:
+    """Return an issue if the body discloses AI assistance in Spanish or English."""
+    for pattern in (*_AI_DISCLOSURE_PATTERNS, *_AI_DISCLOSURE_EN_PATTERNS):
+        if pattern.search(body):
+            return ["el cuerpo revela asistencia de IA"]
+    return []

@@ -45,6 +45,10 @@ class EvaluateDraftState(TypedDict, total=False):
             review. Set by ``human_review`` via ``interrupt()``.
         draft: Generated cover-letter draft, or ``None`` if not drafted. Set by
             ``draft_cover_letter``.
+        needs_manual_context: ``True`` when the draft could not pass the
+            prohibited-words/specificity post-check after the regen cap, so no
+            draft is shipped and the offer is flagged for manual handling. Set by
+            ``draft_cover_letter``.
     """
 
     offer_id: int
@@ -57,3 +61,4 @@ class EvaluateDraftState(TypedDict, total=False):
     loop_count: int
     human_decision: HumanDecision | None
     draft: CoverLetterDraft | None
+    needs_manual_context: bool

@@ -1,9 +1,7 @@
 """Assembly of the ``evaluate_and_draft`` subgraph.
 
 Wires the real nodes (ingest -> research fan-out -> assess_fit -> confidence
-routing -> human_review -> draft) with the README §3 topology. ``human_review``
-(Task 07) and ``draft_cover_letter`` (Task 08) are still placeholders returning
-``{}``; everything up to and including the confidence loop is live.
+routing -> human_review -> draft) with the README §3 topology. All nodes are live.
 
 Node dependencies are injected here and captured by the node factory closures, so
 nodes stay pure ``(state)`` callables.
@@ -21,6 +19,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from src.db.base import get_session
 from src.graph.nodes.assess_fit import make_assess_fit
+from src.graph.nodes.draft import make_draft_cover_letter
 from src.graph.nodes.gather_more import make_gather_more
 from src.graph.nodes.human_review import make_human_review
 from src.graph.nodes.ingest import SessionFactory, make_ingest_offer
@@ -55,11 +54,6 @@ ASSESS_FIT = "assess_fit"
 GATHER_MORE = "gather_more"
 HUMAN_REVIEW = "human_review"
 DRAFT_COVER_LETTER = "draft_cover_letter"
-
-
-def _draft_cover_letter(state: EvaluateDraftState) -> dict[str, object]:
-    """Placeholder for the draft node (Task 08)."""
-    return {}
 
 
 def open_checkpointer(path: Path = CHECKPOINT_DB_PATH) -> Any:
@@ -123,7 +117,7 @@ def build_graph(
         ASSESS_FIT: make_assess_fit(client),
         GATHER_MORE: make_gather_more(),
         HUMAN_REVIEW: make_human_review(),
-        DRAFT_COVER_LETTER: _draft_cover_letter,
+        DRAFT_COVER_LETTER: make_draft_cover_letter(client),
     }
     for name, action in nodes.items():
         graph.add_node(name, action)
