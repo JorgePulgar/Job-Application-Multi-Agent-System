@@ -34,6 +34,7 @@ from src.graph.nodes.route import (
     route_on_confidence,
 )
 from src.graph.nodes.sponsorship import make_extract_sponsorship
+from src.graph.observability import instrument_node
 from src.graph.state import EvaluateDraftState
 from src.services.azure_openai import AzureOpenAIClient
 
@@ -119,8 +120,9 @@ def build_graph(
         HUMAN_REVIEW: make_human_review(),
         DRAFT_COVER_LETTER: make_draft_cover_letter(client),
     }
+    # Wrap each node in a Langfuse span (no-op passthrough when keys are absent).
     for name, action in nodes.items():
-        graph.add_node(name, action)
+        graph.add_node(name, instrument_node(name, action))
 
     graph.add_edge(START, INGEST_OFFER)
 
