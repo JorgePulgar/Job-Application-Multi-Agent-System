@@ -1,9 +1,12 @@
-"""Compile-only scaffold of the ``evaluate_and_draft`` subgraph (Task 01).
+"""Assembly of the ``evaluate_and_draft`` subgraph.
 
-Wires placeholder nodes -- each returns ``{}`` -- with the README §3 topology so
-the graph compiles and can be introspected via ``.get_graph()``. No LLM calls
-yet. Real node bodies land in Tasks 03-08, confidence routing in Task 06, and the
-``interrupt()`` + SqliteSaver checkpointer in Task 07.
+Wires the real nodes (ingest -> research fan-out -> assess_fit -> confidence
+routing -> human_review -> draft) with the README §3 topology. ``human_review``
+(Task 07) and ``draft_cover_letter`` (Task 08) are still placeholders returning
+``{}``; everything up to and including the confidence loop is live.
+
+Node dependencies are injected here and captured by the node factory closures, so
+nodes stay pure ``(state)`` callables.
 """
 
 from __future__ import annotations
@@ -14,7 +17,21 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
+from src.db.base import get_session
+from src.graph.nodes.assess_fit import make_assess_fit
+from src.graph.nodes.gather_more import make_gather_more
+from src.graph.nodes.ingest import SessionFactory, make_ingest_offer
+from src.graph.nodes.match_profile import make_match_profile
+from src.graph.nodes.research_company import make_research_company
+from src.graph.nodes.route import (
+    ROUTE_END,
+    ROUTE_GATHER_MORE,
+    ROUTE_HUMAN_REVIEW,
+    route_on_confidence,
+)
+from src.graph.nodes.sponsorship import make_extract_sponsorship
 from src.graph.state import EvaluateDraftState
+from src.services.azure_openai import AzureOpenAIClient
 
 # The langgraph generics carry four type params (state/context/input/output);
 # the scaffold does not constrain them, so fix them to ``Any``.
@@ -31,36 +48,6 @@ HUMAN_REVIEW = "human_review"
 DRAFT_COVER_LETTER = "draft_cover_letter"
 
 
-def _ingest_offer(state: EvaluateDraftState) -> dict[str, object]:
-    """Placeholder for the ingest node (Task 03)."""
-    return {}
-
-
-def _research_company(state: EvaluateDraftState) -> dict[str, object]:
-    """Placeholder for the company-research fan-out branch (Task 04)."""
-    return {}
-
-
-def _extract_sponsorship(state: EvaluateDraftState) -> dict[str, object]:
-    """Placeholder for the sponsorship-signal fan-out branch (Task 04)."""
-    return {}
-
-
-def _match_profile(state: EvaluateDraftState) -> dict[str, object]:
-    """Placeholder for the profile-match fan-out branch (Task 04)."""
-    return {}
-
-
-def _assess_fit(state: EvaluateDraftState) -> dict[str, object]:
-    """Placeholder for the fan-in assessment node (Task 05)."""
-    return {}
-
-
-def _gather_more(state: EvaluateDraftState) -> dict[str, object]:
-    """Placeholder for the confidence-loop re-research node (Task 06)."""
-    return {}
-
-
 def _human_review(state: EvaluateDraftState) -> dict[str, object]:
     """Placeholder for the human-in-the-loop interrupt node (Task 07)."""
     return {}
@@ -71,37 +58,41 @@ def _draft_cover_letter(state: EvaluateDraftState) -> dict[str, object]:
     return {}
 
 
-def _route_on_confidence(state: EvaluateDraftState) -> str:
-    """Placeholder confidence router (real logic in Task 06).
-
-    Always routes to ``human_review`` for now so the compiled graph has a
-    reachable draft path. Task 06 adds the ``skip`` (END) and ``gather_more``
-    (loop, max 2) branches driven by ``fit`` + ``loop_count``.
-    """
-    return HUMAN_REVIEW
-
-
-def build_graph(checkpointer: BaseCheckpointSaver[Any]) -> CompiledEvalGraph:
+def build_graph(
+    checkpointer: BaseCheckpointSaver[Any],
+    *,
+    client: AzureOpenAIClient,
+    session_factory: SessionFactory = get_session,
+) -> CompiledEvalGraph:
     """Build and compile the ``evaluate_and_draft`` subgraph.
 
     Args:
         checkpointer: Persistence backend for graph state. ``MemorySaver`` in
             tests; an async SqliteSaver in production (wired in Task 07).
+        client: Azure OpenAI client injected into every LLM node.
+        session_factory: Callable yielding a context-managed ``Session`` for the
+            DB-touching nodes. Defaults to the app session factory.
 
     Returns:
-        The compiled graph. Nodes are placeholders returning ``{}`` until
-        Tasks 03-08 fill them in.
+        The compiled graph. ``human_review`` and ``draft_cover_letter`` are
+        placeholders until Tasks 07-08.
     """
     graph: StateGraph[Any, Any, Any, Any] = StateGraph(EvaluateDraftState)
 
-    graph.add_node(INGEST_OFFER, _ingest_offer)
-    graph.add_node(RESEARCH_COMPANY, _research_company)
-    graph.add_node(EXTRACT_SPONSORSHIP, _extract_sponsorship)
-    graph.add_node(MATCH_PROFILE, _match_profile)
-    graph.add_node(ASSESS_FIT, _assess_fit)
-    graph.add_node(GATHER_MORE, _gather_more)
-    graph.add_node(HUMAN_REVIEW, _human_review)
-    graph.add_node(DRAFT_COVER_LETTER, _draft_cover_letter)
+    # langgraph's add_node overloads do not cleanly accept our precise async node
+    # signatures; register through an Any-typed map to keep it one place.
+    nodes: dict[str, Any] = {
+        INGEST_OFFER: make_ingest_offer(client, session_factory),
+        RESEARCH_COMPANY: make_research_company(client, session_factory),
+        EXTRACT_SPONSORSHIP: make_extract_sponsorship(client),
+        MATCH_PROFILE: make_match_profile(client),
+        ASSESS_FIT: make_assess_fit(client),
+        GATHER_MORE: make_gather_more(),
+        HUMAN_REVIEW: _human_review,
+        DRAFT_COVER_LETTER: _draft_cover_letter,
+    }
+    for name, action in nodes.items():
+        graph.add_node(name, action)
 
     graph.add_edge(START, INGEST_OFFER)
 
@@ -115,14 +106,15 @@ def build_graph(checkpointer: BaseCheckpointSaver[Any]) -> CompiledEvalGraph:
     graph.add_edge(EXTRACT_SPONSORSHIP, ASSESS_FIT)
     graph.add_edge(MATCH_PROFILE, ASSESS_FIT)
 
-    # Confidence routing: skip (END), loop (gather_more), or proceed to review.
+    # Confidence routing: SKIP ends short, missing-info loops back (cap 2),
+    # confident proceeds to human review.
     graph.add_conditional_edges(
         ASSESS_FIT,
-        _route_on_confidence,
+        route_on_confidence,
         {
-            "skip": END,
-            GATHER_MORE: GATHER_MORE,
-            HUMAN_REVIEW: HUMAN_REVIEW,
+            ROUTE_END: END,
+            ROUTE_GATHER_MORE: GATHER_MORE,
+            ROUTE_HUMAN_REVIEW: HUMAN_REVIEW,
         },
     )
     graph.add_edge(GATHER_MORE, ASSESS_FIT)

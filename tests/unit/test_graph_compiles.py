@@ -6,6 +6,8 @@ and the graph can be drawn (``.get_graph()``).
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 from langgraph.checkpoint.memory import MemorySaver
 
 from src.graph.build import (
@@ -20,10 +22,13 @@ from src.graph.build import (
     build_graph,
 )
 
+# Compile-only: node factories capture the client but it is never called here.
+_client = MagicMock()
+
 
 def test_build_graph_compiles_and_exposes_nodes() -> None:
     """build_graph returns a compiled graph exposing every wired node."""
-    compiled = build_graph(MemorySaver())
+    compiled = build_graph(MemorySaver(), client=_client)
 
     drawable = compiled.get_graph()
     node_ids = set(drawable.nodes)
@@ -43,7 +48,7 @@ def test_build_graph_compiles_and_exposes_nodes() -> None:
 
 def test_build_graph_has_fanout_and_fanin_edges() -> None:
     """The three research branches fan out from ingest and fan in to assess_fit."""
-    compiled = build_graph(MemorySaver())
+    compiled = build_graph(MemorySaver(), client=_client)
     edges = {(e.source, e.target) for e in compiled.get_graph().edges}
 
     for branch in (RESEARCH_COMPANY, EXTRACT_SPONSORSHIP, MATCH_PROFILE):

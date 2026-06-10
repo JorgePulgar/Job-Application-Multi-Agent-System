@@ -6,19 +6,24 @@ borderline/missing-info loops back for more research (max 2), confident proceeds
 to human review.
 
 ## Acceptance criteria
-- [ ] `src/graph/nodes/route.py` implements `route_on_confidence(state) -> str`
+- [x] `src/graph/nodes/route.py` implements `route_on_confidence(state) -> str`
       returning one of `"end"`, `"gather_more"`, `"human_review"`.
-- [ ] Routing logic:
+- [x] Routing logic:
       - `fit.recommendation == "skip"` → `"end"` (SKIP-is-short: no draft).
       - else if `fit.missing_info` non-empty **and** `loop_count < 2` →
         `"gather_more"`.
       - else → `"human_review"`.
-- [ ] `src/graph/nodes/gather_more.py` does targeted extra research for the
+- [x] `src/graph/nodes/gather_more.py` does targeted extra research for the
       `missing_info` items (reuse `search_web`/`CompanyResearcher`), increments
-      `loop_count`, and routes back to `assess_fit`.
-- [ ] Loop cap is firm at 2 (mirrors the v1 max-2-regen rule). On exhaustion the
+      `loop_count`, and routes back to `assess_fit`. _Uses `search_web` per item;
+      folds snippets into `dossier.cultura_notas` so the next `assess_fit` sees them._
+- [x] Loop cap is firm at 2 (mirrors the v1 max-2-regen rule). On exhaustion the
       offer proceeds to `human_review` with `missing_info` surfaced, never spins.
-- [ ] Conditional edges wired in `src/graph/build.py`.
+      _Cap enforced in the pure router (`loop_count < MAX_LOOPS=2`); termination
+      test asserts exactly 2 passes then `human_review`._
+- [x] Conditional edges wired in `src/graph/build.py`. _build_graph now takes
+      `*, client, session_factory` and wires the real nodes 03-06; `human_review`
+      (07) + `draft_cover_letter` (08) remain placeholders._
 
 ## Files to create / modify
 - `src/graph/nodes/route.py`
