@@ -35,6 +35,10 @@ Plain Python orchestrator + specialized agents, SQLite for state, GitHub Actions
 - **Scheduler** — GitHub Actions cron workflow.
 - **Notifications** — Telegram bot summary at end of each daily run.
 
+**Component added in Phase 10.5 (LangGraph subgraph):**
+
+- **`evaluate_and_draft` subgraph** — the per-offer `research → eval → draft` slice runs as a **LangGraph** subgraph (parallel research fan-out, a confidence loop, `interrupt()` human-in-the-loop, and a SQLite checkpointer for crash-resumable daily runs). The rest of the pipeline (scrapers, dedup, offer filter, orchestrator loop) stays plain Python. **LangGraph only — no LangChain-classic LLM wrappers/chains/parsers**; nodes call the existing `AzureOpenAIClient` + `prompt_loader`, preserving prompt caching and structured outputs. Supersedes the `ViabilityEvaluator`/`ApplicationWriter` call-sites behind a feature flag; those agents remain for reference/tests. See `tasks/phase-10.5-langgraph-copilot/`.
+
 **Components added in v1.1 (Phase 11):**
 
 - **Person finder agent** — finds AI/ML leads at researched companies via public web search (NEVER scrapes LinkedIn).
@@ -53,6 +57,7 @@ Plain Python orchestrator + specialized agents, SQLite for state, GitHub Actions
 - Dedup: `rapidfuzz`
 - Tests: `pytest` + `pytest-asyncio` + `respx`
 - Type check: `mypy --strict`. Lint/format: `ruff`
+- **Phase 10.5 only:** `langgraph` (subgraph orchestration + SQLite checkpointer) and `langfuse` (tracing + eval). **NOT** LangChain-classic — LangGraph is used standalone; nodes keep calling the `openai`-SDK-based `AzureOpenAIClient`. (Confirm 3.14 support before pinning.)
 
 **Dashboard stack:** Next.js 14 App Router, TypeScript, Tailwind, shadcn/ui, deployed to Vercel.
 
@@ -76,6 +81,8 @@ Two Azure OpenAI deployments:
 **Prompt caching MUST be enabled** wherever supported. The user CV and stable system messages are cached.
 
 **All prompts in Spanish.** Loaded from `src/prompts/*.md` at runtime — never hardcoded inline.
+
+**Exception — Phase 10.5 `evaluate_and_draft` subgraph: match the offer's language.** The subgraph detects the offer language at ingest (`ParsedOffer.detected_language`) and emits its analysis and the final draft in that language — English JD → English, Spanish JD → Spanish. Prompts that produce user-facing text take the target language as a parameter. A per-language prohibited-words list applies (the v1 Spanish list plus an English banned-cliché equivalent).
 
 ### Prohibited words/phrases in drafts
 
@@ -228,6 +235,7 @@ job-agent/
 - Dashboard auth: not in v1 or v1.1. User picker is sufficient.
 - No multi-tenancy beyond 2 hardcoded users.
 - Phase 11 only after Phase 10 is explicitly approved.
+- **Phase 10.5 (LangGraph subgraph)** introduces no vector DB, no new Azure resource, and no LangChain-classic. SQLite-only still holds — the LangGraph checkpointer uses SQLite. Phase 10.5 runs before Phase 11. (Approved 2026-06-10.)
 
 ### Volume (Phase 11)
 
