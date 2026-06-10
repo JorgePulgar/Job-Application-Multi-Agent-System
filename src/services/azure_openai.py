@@ -9,7 +9,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
 import structlog
-from openai import APIStatusError, AsyncAzureOpenAI, RateLimitError
+
+# Langfuse drop-in for the Azure OpenAI client: a subclass of openai's
+# AsyncAzureOpenAI that auto-traces every completion as a Langfuse generation
+# (model, token usage, cost) when Langfuse keys are present, and is a transparent
+# no-op when they are absent. This is the OpenAI integration -- NOT LangChain --
+# so prompt caching and structured outputs are untouched (constitution D-02).
+from langfuse.openai import AsyncAzureOpenAI  # type: ignore[attr-defined]  # dynamic re-export
+from openai import APIStatusError, RateLimitError
 from openai.types.chat import (
     ChatCompletionMessageParam,
     ChatCompletionSystemMessageParam,
@@ -138,21 +145,25 @@ class AzureOpenAIClient:
         ]
 
         if response_format is not None:
+            # ``name`` is a langfuse-only kwarg (consumed by the drop-in wrapper,
+            # not part of the openai typed signature) -> pass it via the Any extra.
+            parse_extra = {"name": f"azure:{model}:{response_format.__name__}", **extra}
             raw = await self._client.beta.chat.completions.parse(
                 model=model,
                 messages=messages,
                 response_format=response_format,
-                **extra,
+                **parse_extra,
             )
             content = raw.choices[0].message.content or ""
             parsed: BaseModel | None = raw.choices[0].message.parsed
             completion_model = raw.model
             usage_raw = raw.usage
         else:
+            create_extra = {"name": f"azure:{model}", **extra}
             raw2 = await self._client.chat.completions.create(
                 model=model,
                 messages=messages,
-                **extra,
+                **create_extra,
             )
             content = raw2.choices[0].message.content or ""
             parsed = None

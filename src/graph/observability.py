@@ -1,23 +1,28 @@
 """Langfuse tracing for the ``evaluate_and_draft`` subgraph.
 
-Instruments the graph with the **Langfuse SDK directly** -- not the
-``langfuse.langchain`` CallbackHandler, which requires LangChain-classic that this
-project deliberately avoids (constitution D-02/D-06). Each node is wrapped in a
-span; the whole application run is one trace named by ``thread_id``; per-application
-token/cost is attached from the existing usage tracker (LLM calls go through the
-``openai`` SDK, so token usage is summed by the v1 cost tracker and surfaced in run
-logs, then mirrored onto the trace here).
+Best-practice instrumentation per the Langfuse skill:
+
+* **LLM calls** are traced automatically by the ``langfuse.openai`` drop-in used
+  in ``AzureOpenAIClient`` -- each completion becomes a generation with model,
+  token usage and cost. That is the OpenAI integration, **not** LangChain
+  (constitution D-02), so prompt caching and structured outputs are untouched.
+* **Graph structure** is added on top: each node is a span (``instrument_node``)
+  and a whole application run is one trace named by ``thread_id`` (``trace_run``),
+  carrying ``session_id``/``user_id``/tags so generations group correctly.
+* **PII is masked at the source**: the Langfuse client is created with a ``mask``
+  that runs the v1 ``_mask_pii`` over every traced value, so the CV's email/phone
+  in prompts never reaches Langfuse.
 
 Tracing is a **silent no-op when the Langfuse keys are absent**: ``instrument_node``
-returns the node unchanged (zero overhead) and ``trace_run`` is a null context, so
-the graph runs identically without Langfuse configured.
+returns the node unchanged, ``trace_run`` is a null context, and the
+``langfuse.openai`` client degrades to a plain Azure OpenAI client.
 """
 
 from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator, Awaitable, Callable
-from contextlib import asynccontextmanager
+from contextlib import ExitStack, asynccontextmanager
 from typing import Any, TypeVar, cast
 
 import structlog
@@ -30,8 +35,9 @@ NodeCoro = Callable[[Any], Awaitable[dict[str, object]]]
 F = TypeVar("F", bound=NodeCoro)
 
 _REQUIRED_KEYS = ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY")
+_TRACE_TAGS = ["phase-10.5", "evaluate_and_draft"]
 
-_client: Any | None = None
+_initialized = False
 
 
 def langfuse_enabled() -> bool:
@@ -39,23 +45,51 @@ def langfuse_enabled() -> bool:
     return all(os.environ.get(key) for key in _REQUIRED_KEYS)
 
 
+def _mask_data(data: Any) -> Any:
+    """Langfuse mask: recursively run the v1 PII masking over traced values."""
+    if isinstance(data, str):
+        return _mask_pii(data)
+    if isinstance(data, dict):
+        return {k: _mask_data(v) for k, v in data.items()}
+    if isinstance(data, (list, tuple)):
+        return [_mask_data(v) for v in data]
+    return data
+
+
+def init_langfuse() -> None:
+    """Create the masked Langfuse singleton once, before any LLM call.
+
+    Must run before the first ``langfuse.openai`` completion so that the
+    integration reuses this masked client. No-op when tracing is disabled or
+    already initialized.
+    """
+    global _initialized
+    if _initialized or not langfuse_enabled():
+        return
+    from langfuse import Langfuse
+
+    # mask is structurally a MaskFunction; langfuse's nominal type trips mypy.
+    Langfuse(mask=_mask_data)  # type: ignore[arg-type]
+    _initialized = True
+    logger.info("langfuse_initialized")
+
+
 def _get_client() -> Any | None:
-    """Return a cached Langfuse client, or ``None`` when tracing is disabled."""
-    global _client
+    """Return the masked Langfuse client, or ``None`` when tracing is disabled."""
     if not langfuse_enabled():
         return None
-    if _client is None:
-        from langfuse import get_client
+    init_langfuse()
+    from langfuse import get_client
 
-        _client = get_client()
-    return _client
+    return get_client()
 
 
 def instrument_node(name: str, fn: F) -> F:
     """Wrap a node coroutine in a Langfuse span, or return it unchanged.
 
     When tracing is disabled this returns *fn* itself (no wrapper, no overhead).
-    Tracing failures never propagate -- the node result is always returned.
+    LLM generations made inside the node auto-nest under this span. Tracing
+    failures never propagate -- the node result is always returned.
 
     Args:
         name: Span name (the node name).
@@ -87,9 +121,12 @@ def instrument_node(name: str, fn: F) -> F:
 async def trace_run(thread_id: str, *, username: str, offer_id: int) -> AsyncIterator[None]:
     """Open one Langfuse trace for an application run, or a null context.
 
+    Sets ``session_id`` (the ``thread_id``) and ``user_id`` (the username) so all
+    nested node spans and LLM generations group into one filterable trace.
+
     Args:
         thread_id: Stable id naming the trace (``f"{username}:{offer_id}"``).
-        username: Profile username (not PII).
+        username: Profile username (not PII; used as ``user_id``).
         offer_id: Offer DB id.
 
     Yields:
@@ -99,10 +136,20 @@ async def trace_run(thread_id: str, *, username: str, offer_id: int) -> AsyncIte
     if client is None:
         yield
         return
+
+    from langfuse import propagate_attributes
+
     try:
-        with client.start_as_current_observation(name=thread_id):
-            client.update_current_span(
-                metadata={"thread_id": thread_id, "username": username, "offer_id": offer_id}
+        with ExitStack() as stack:
+            stack.enter_context(client.start_as_current_observation(name=thread_id))
+            stack.enter_context(
+                propagate_attributes(
+                    trace_name=thread_id,
+                    session_id=thread_id,
+                    user_id=username,
+                    tags=_TRACE_TAGS,
+                    metadata={"offer_id": str(offer_id)},
+                )
             )
             yield
     finally:
@@ -110,22 +157,6 @@ async def trace_run(thread_id: str, *, username: str, offer_id: int) -> AsyncIte
             client.flush()
         except Exception as exc:
             logger.warning("langfuse_flush_failed", error=str(exc))
-
-
-def record_application_cost(total_tokens: int, cost_usd: float) -> None:
-    """Attach per-application token/cost to the current trace (no-op if disabled).
-
-    Args:
-        total_tokens: Summed token usage across the run's LLM calls.
-        cost_usd: Estimated USD cost across the run.
-    """
-    client = _get_client()
-    if client is None:
-        return
-    try:
-        client.update_current_span(metadata={"total_tokens": total_tokens, "cost_usd": cost_usd})
-    except Exception as exc:
-        logger.warning("langfuse_cost_record_failed", error=str(exc))
 
 
 def mask(text: str) -> str:

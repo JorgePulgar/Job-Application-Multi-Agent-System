@@ -40,11 +40,11 @@ async def test_wrapped_node_runs_when_disabled(_no_keys: None) -> None:
 
 
 @pytest.mark.asyncio
-async def test_trace_run_and_cost_are_noops(_no_keys: None) -> None:
-    """trace_run yields and record_application_cost is silent when disabled."""
+async def test_trace_run_and_init_are_noops(_no_keys: None) -> None:
+    """trace_run yields and init_langfuse is silent when disabled."""
+    observability.init_langfuse()  # must not raise or initialize
     async with observability.trace_run("jorge:1", username="jorge", offer_id=1):
         pass
-    observability.record_application_cost(1234, 0.05)  # must not raise
 
 
 def test_instrument_node_wraps_when_enabled(monkeypatch: pytest.MonkeyPatch) -> None:

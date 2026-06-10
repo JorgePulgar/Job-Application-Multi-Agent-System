@@ -34,7 +34,7 @@ from src.graph.nodes.route import (
     route_on_confidence,
 )
 from src.graph.nodes.sponsorship import make_extract_sponsorship
-from src.graph.observability import instrument_node
+from src.graph.observability import init_langfuse, instrument_node
 from src.graph.state import EvaluateDraftState
 from src.services.azure_openai import AzureOpenAIClient
 
@@ -106,6 +106,9 @@ def build_graph(
         The compiled graph. ``human_review`` and ``draft_cover_letter`` are
         placeholders until Tasks 07-08.
     """
+    # Create the masked Langfuse singleton before any LLM call (no-op if disabled).
+    init_langfuse()
+
     graph: StateGraph[Any, Any, Any, Any] = StateGraph(EvaluateDraftState)
 
     # langgraph's add_node overloads do not cleanly accept our precise async node
