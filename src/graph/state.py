@@ -5,26 +5,24 @@ Branch outputs write disjoint keys (the research fan-out branches never write th
 same key), so no custom reducers are needed beyond the fan-in node reading all
 three branch results.
 
-The six structured-output schemas referenced below (``ParsedOffer``,
-``SponsorshipSignal``, ``RequirementMatch``, ``FitAssessment``,
-``HumanDecision``, ``CoverLetterDraft``) are created in ``src/models/fit.py`` in
-Task 02. Until then they are aliased to ``Any`` here so this scaffold type-checks
-and the graph compiles; Task 02 replaces the aliases with concrete imports.
+The structured-output schemas threaded through the state live in
+``src/models/company.py`` (``CompanyDossier``, reused from v1) and
+``src/models/fit.py`` (the Phase 10.5 fit schemas).
 """
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from src.models.company import CompanyDossier
-
-# Placeholders, replaced by concrete imports from ``src.models.fit`` in Task 02.
-ParsedOffer = Any
-SponsorshipSignal = Any
-RequirementMatch = Any
-FitAssessment = Any
-HumanDecision = Any
-CoverLetterDraft = Any
+from src.models.fit import (
+    CoverLetterDraft,
+    FitAssessment,
+    HumanDecision,
+    ParsedOffer,
+    RequirementMatch,
+    SponsorshipSignal,
+)
 
 
 class EvaluateDraftState(TypedDict, total=False):
