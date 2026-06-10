@@ -92,7 +92,9 @@ LangGraph/Langfuse. Adding them is a deliberate, recorded exception (CLAUDE.md
 ### Open / to revisit
 - **Python 3.14 compat** (venv is 3.14): confirm `langgraph`/`langfuse` support in
   Task 01 before pinning; fall back to a supported interpreter/version if not.
-- **Checkpointer DB location:** existing `state.db` vs a dedicated
-  `graph_checkpoints.db` — decide in Task 07.
+- ~~**Checkpointer DB location:** existing `state.db` vs a dedicated
+  `graph_checkpoints.db` — decide in Task 07.~~ **RESOLVED (Task 07):** dedicated
+  `data/graph_checkpoints.db` via `AsyncSqliteSaver`, kept separate from `state.db`
+  so langgraph's internal checkpoint tables never collide with the app schema.
 - **Score vs fit_level:** keep numeric `score` (0-100) alongside the skill's
   STRONG/MODERATE/WEAK `fit_level`; reconcile in Task 02.

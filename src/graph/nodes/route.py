@@ -15,6 +15,7 @@ MAX_LOOPS = 2
 ROUTE_END = "end"
 ROUTE_GATHER_MORE = "gather_more"
 ROUTE_HUMAN_REVIEW = "human_review"
+ROUTE_DRAFT = "draft"
 
 
 def route_on_confidence(state: EvaluateDraftState) -> str:
@@ -34,3 +35,19 @@ def route_on_confidence(state: EvaluateDraftState) -> str:
     if fit.missing_info and state.get("loop_count", 0) < MAX_LOOPS:
         return ROUTE_GATHER_MORE
     return ROUTE_HUMAN_REVIEW
+
+
+def route_after_review(state: EvaluateDraftState) -> str:
+    """Decide where to go after ``human_review``.
+
+    Args:
+        state: Graph state carrying ``human_decision``.
+
+    Returns:
+        ``"draft"`` when the reviewer's decision is apply/maybe, ``"end"`` when
+        the reviewer overrode to skip (no draft).
+    """
+    decision = state["human_decision"]
+    if decision is not None and decision.decision in ("apply", "maybe"):
+        return ROUTE_DRAFT
+    return ROUTE_END

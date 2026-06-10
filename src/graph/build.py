@@ -11,27 +11,36 @@ nodes stay pure ``(state)`` callables.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from src.db.base import get_session
 from src.graph.nodes.assess_fit import make_assess_fit
 from src.graph.nodes.gather_more import make_gather_more
+from src.graph.nodes.human_review import make_human_review
 from src.graph.nodes.ingest import SessionFactory, make_ingest_offer
 from src.graph.nodes.match_profile import make_match_profile
 from src.graph.nodes.research_company import make_research_company
 from src.graph.nodes.route import (
+    ROUTE_DRAFT,
     ROUTE_END,
     ROUTE_GATHER_MORE,
     ROUTE_HUMAN_REVIEW,
+    route_after_review,
     route_on_confidence,
 )
 from src.graph.nodes.sponsorship import make_extract_sponsorship
 from src.graph.state import EvaluateDraftState
 from src.services.azure_openai import AzureOpenAIClient
+
+# Dedicated checkpointer DB, kept separate from the app's state.db so langgraph's
+# internal checkpoint tables never collide with the application schema.
+CHECKPOINT_DB_PATH = Path("data") / "graph_checkpoints.db"
 
 # The langgraph generics carry four type params (state/context/input/output);
 # the scaffold does not constrain them, so fix them to ``Any``.
@@ -48,14 +57,39 @@ HUMAN_REVIEW = "human_review"
 DRAFT_COVER_LETTER = "draft_cover_letter"
 
 
-def _human_review(state: EvaluateDraftState) -> dict[str, object]:
-    """Placeholder for the human-in-the-loop interrupt node (Task 07)."""
-    return {}
-
-
 def _draft_cover_letter(state: EvaluateDraftState) -> dict[str, object]:
     """Placeholder for the draft node (Task 08)."""
     return {}
+
+
+def open_checkpointer(path: Path = CHECKPOINT_DB_PATH) -> Any:
+    """Return an async context manager yielding an ``AsyncSqliteSaver``.
+
+    The caller enters it and passes the saver to :func:`build_graph`; the same
+    DB file across invocations makes a paused application resumable after a
+    process restart.
+
+    Args:
+        path: Checkpointer SQLite file. Defaults to ``data/graph_checkpoints.db``.
+
+    Returns:
+        Async context manager yielding the checkpointer.
+    """
+    return AsyncSqliteSaver.from_conn_string(str(path))
+
+
+def thread_config(username: str, offer_id: int) -> dict[str, Any]:
+    """Build the per-application LangGraph config (stable ``thread_id``).
+
+    Args:
+        username: Profile username.
+        offer_id: Offer DB id.
+
+    Returns:
+        Config dict with ``thread_id = f"{username}:{offer_id}"`` so a re-invoked
+        run resumes the same paused application instead of starting over.
+    """
+    return {"configurable": {"thread_id": f"{username}:{offer_id}"}}
 
 
 def build_graph(
@@ -88,7 +122,7 @@ def build_graph(
         MATCH_PROFILE: make_match_profile(client),
         ASSESS_FIT: make_assess_fit(client),
         GATHER_MORE: make_gather_more(),
-        HUMAN_REVIEW: _human_review,
+        HUMAN_REVIEW: make_human_review(),
         DRAFT_COVER_LETTER: _draft_cover_letter,
     }
     for name, action in nodes.items():
@@ -119,7 +153,15 @@ def build_graph(
     )
     graph.add_edge(GATHER_MORE, ASSESS_FIT)
 
-    graph.add_edge(HUMAN_REVIEW, DRAFT_COVER_LETTER)
+    # After human review: draft on apply/maybe, end on a skip override.
+    graph.add_conditional_edges(
+        HUMAN_REVIEW,
+        route_after_review,
+        {
+            ROUTE_DRAFT: DRAFT_COVER_LETTER,
+            ROUTE_END: END,
+        },
+    )
     graph.add_edge(DRAFT_COVER_LETTER, END)
 
     return graph.compile(checkpointer=checkpointer)
