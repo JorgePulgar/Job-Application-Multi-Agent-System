@@ -163,14 +163,36 @@ def _fmt(aggregate: dict[str, float], name: str) -> str:
     return f"{aggregate[name]:.3f}" if name in aggregate else "n/a (not measured this run)"
 
 
-def _write_baseline(run_name: str, count: int, aggregate: dict[str, float]) -> None:
-    """Write docs/eval-baseline.md with this run's aggregate as the baseline."""
+def _per_item_table(per_item: list[dict[str, Any]]) -> list[str]:
+    """Render a per-offer breakdown table (one row per dataset item)."""
+    rows = [
+        "| Offer | Graph verdict | Reference | verdict | faithfulness | specificity |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for r in sorted(per_item, key=lambda x: x["offer_id"]):
+        s = r["scores"]
+
+        def cell(name: str, sc: dict[str, float] = s) -> str:
+            return f"{sc[name]:.2f}" if name in sc else "—"
+
+        rows.append(
+            f"| {r['offer_id']} | {r['prediction']} | {r['reference']} | "
+            f"{cell('verdict_agreement')} | {cell('faithfulness')} | {cell('specificity')} |"
+        )
+    return rows
+
+
+def _write_baseline(
+    run_name: str, per_item: list[dict[str, Any]], aggregate: dict[str, float]
+) -> None:
+    """Write docs/eval-baseline.md with this run's aggregate + per-item breakdown."""
+    drafted = sum(1 for r in per_item if "specificity" in r["scores"])
     lines = [
         "# Eval baseline — `evaluate_and_draft` subgraph",
         "",
-        "First scored run of the Phase 10.5 subgraph against the historical-offer",
-        "dataset. These are the numbers to beat: a later prompt/graph change should",
-        "raise (or hold) every score. Regenerate with:",
+        "Scored run of the Phase 10.5 subgraph against a dataset built from real",
+        "historical offers + their v1 evaluations. These are the numbers to beat: a",
+        "later prompt/graph change should raise (or hold) every score. Regenerate:",
         "",
         "```bash",
         "uv run python scripts/build_eval_dataset.py --user jorge",
@@ -190,7 +212,28 @@ def _write_baseline(run_name: str, count: int, aggregate: dict[str, float]) -> N
         "| `specificity` | Draft cites ≥1 concrete company fact (drafted items only) | "
         f"{_fmt(aggregate, 'specificity')} |",
         "",
-        f"Run `{run_name}` over {count} item(s).",
+        f"Run `{run_name}` over {len(per_item)} item(s); "
+        f"{drafted} produced a shippable draft (rest flagged `needs_manual_context`).",
+        "",
+        "## Per-offer breakdown",
+        "",
+        *_per_item_table(per_item),
+        "",
+        "`specificity` is `—` when no draft was shipped (skip verdict or",
+        "`needs_manual_context`), so it does not enter that item's score.",
+        "",
+        "## Observations",
+        "",
+        "_Add interpretation of this run here (regenerating overwrites the tables",
+        "above but this is where the human read of the numbers belongs)._",
+        "",
+        "## Data provenance & known gaps",
+        "",
+        "- Offers sourced from **Adzuna** only. **Jooble** is Cloudflare-WAF blocked",
+        "  (hard 403, key-independent) and **WTTJ** is not wired into the scrape",
+        "  runner, so neither contributes offers yet.",
+        "- Reference labels are the v1 `evaluations.recomendacion` mapped to",
+        "  apply/maybe/skip; they can be hand-corrected in `data/evals/dataset.jsonl`.",
         "",
     ]
     BASELINE_DOC.parent.mkdir(parents=True, exist_ok=True)
@@ -242,7 +285,7 @@ async def run(dataset: Path, write_baseline: bool) -> None:
     print(f"Saved run to {out}")
 
     if write_baseline:
-        _write_baseline(run_name, len(per_item), aggregate)
+        _write_baseline(run_name, per_item, aggregate)
 
 
 def main() -> None:
