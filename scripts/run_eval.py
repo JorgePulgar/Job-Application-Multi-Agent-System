@@ -74,14 +74,19 @@ def _offer_text(parsed: ParsedOffer, descripcion: str | None) -> str:
     )
 
 
-async def _run_item(graph: Any, item: dict[str, Any]) -> dict[str, Any]:
+def _thread_id(run_name: str, offer_id: int, username: str) -> str:
+    """Per-run thread id so a rerun never resumes a previous run's finished thread."""
+    return f"{run_name}:{offer_id}:{username}"
+
+
+async def _run_item(graph: Any, item: dict[str, Any], run_name: str) -> dict[str, Any]:
     """Run the subgraph for one item and return its final state values.
 
     Auto-resumes the human-review interrupt by mirroring the model's verdict.
     """
     offer_id = int(item["input"]["offer_id"])
     username = str(item["input"]["username"])
-    cfg = {"configurable": {"thread_id": f"eval:{offer_id}:{username}"}}
+    cfg = {"configurable": {"thread_id": _thread_id(run_name, offer_id, username)}}
 
     result = await graph.ainvoke({"offer_id": offer_id, "username": username}, config=cfg)
     if "__interrupt__" in result:
@@ -207,9 +212,9 @@ async def run(dataset: Path, write_baseline: bool) -> None:
         for item in items:
             offer_id = int(item["input"]["offer_id"])
             username = str(item["input"]["username"])
-            thread_id = f"eval:{offer_id}:{username}"
+            thread_id = _thread_id(run_name, offer_id, username)
             async with o.trace_run(thread_id, username=username, offer_id=offer_id):
-                values = await _run_item(graph, item)
+                values = await _run_item(graph, item, run_name)
                 scores = await _score_item(item, values, judge)
                 _record_langfuse(scores)
             per_item.append(
