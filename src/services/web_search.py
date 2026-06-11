@@ -144,8 +144,10 @@ async def search_web(query: str, n: int = 10) -> list[SearchResult]:
     """Search the web and return up to ``n`` deduplicated results.
 
     Uses Bing Search v7 when ``BING_SEARCH_KEY`` is set in the environment,
-    falling back to DuckDuckGo otherwise. A failed search logs a warning and
-    returns an empty list rather than propagating the exception.
+    falling back to DuckDuckGo otherwise. A Bing auth failure (HTTP 401/403 -- an
+    invalid or expired key) also falls back to DuckDuckGo, so a bad key degrades
+    rather than killing research. Any other failure logs a warning and returns an
+    empty list rather than propagating the exception.
 
     Args:
         query: Search query string.
@@ -157,7 +159,17 @@ async def search_web(query: str, n: int = 10) -> list[SearchResult]:
     try:
         provider = _resolve_provider()
         if provider == "bing":
-            results = await _search_bing(query, n)
+            try:
+                results = await _search_bing(query, n)
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code not in (401, 403):
+                    raise
+                logger.warning(
+                    "web_search_bing_auth_failed_falling_back_ddg",
+                    status=exc.response.status_code,
+                    query=query,
+                )
+                results = await _search_ddg(query, n)
         else:
             results = await _search_ddg(query, n)
         return _dedupe_by_url(results)[:n]

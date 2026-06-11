@@ -9,10 +9,13 @@ nodes stay pure ``(state)`` callables.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -42,6 +45,28 @@ from src.services.azure_openai import AzureOpenAIClient
 # internal checkpoint tables never collide with the application schema.
 CHECKPOINT_DB_PATH = Path("data") / "graph_checkpoints.db"
 
+# Pydantic models written into the checkpoint. Declared explicitly so langgraph's
+# msgpack deserializer allow-lists them instead of warning ("Deserializing
+# unregistered type ...") and eventually blocking them. (module, qualname) pairs.
+_CHECKPOINT_ALLOWED_TYPES: list[tuple[str, ...]] = [
+    ("src.models.fit", "ParsedOffer"),
+    ("src.models.fit", "SponsorshipSignal"),
+    ("src.models.fit", "RequirementItem"),
+    ("src.models.fit", "RequirementMatch"),
+    ("src.models.fit", "TailoringPointers"),
+    ("src.models.fit", "FitAssessment"),
+    ("src.models.fit", "HumanDecision"),
+    ("src.models.fit", "CoverLetterDraft"),
+    ("src.models.company", "CompanyDossier"),
+    ("src.models.company", "TamanoEmpresa"),
+]
+
+
+def _checkpoint_serde() -> JsonPlusSerializer:
+    """Serializer that allow-lists the graph's checkpointed Pydantic models."""
+    return JsonPlusSerializer(allowed_msgpack_modules=_CHECKPOINT_ALLOWED_TYPES)
+
+
 # The langgraph generics carry four type params (state/context/input/output);
 # the scaffold does not constrain them, so fix them to ``Any``.
 CompiledEvalGraph = CompiledStateGraph[Any, Any, Any, Any]
@@ -57,20 +82,24 @@ HUMAN_REVIEW = "human_review"
 DRAFT_COVER_LETTER = "draft_cover_letter"
 
 
-def open_checkpointer(path: Path = CHECKPOINT_DB_PATH) -> Any:
-    """Return an async context manager yielding an ``AsyncSqliteSaver``.
+@asynccontextmanager
+async def open_checkpointer(path: Path = CHECKPOINT_DB_PATH) -> AsyncIterator[Any]:
+    """Yield an ``AsyncSqliteSaver`` with the model-allowlisted serializer.
 
     The caller enters it and passes the saver to :func:`build_graph`; the same
     DB file across invocations makes a paused application resumable after a
-    process restart.
+    process restart. The serializer is swapped for one that explicitly allow-lists
+    the graph's Pydantic models so checkpoint (de)serialization is warning-free.
 
     Args:
         path: Checkpointer SQLite file. Defaults to ``data/graph_checkpoints.db``.
 
-    Returns:
-        Async context manager yielding the checkpointer.
+    Yields:
+        The configured checkpointer.
     """
-    return AsyncSqliteSaver.from_conn_string(str(path))
+    async with AsyncSqliteSaver.from_conn_string(str(path)) as saver:
+        saver.serde = _checkpoint_serde()
+        yield saver
 
 
 def thread_config(username: str, offer_id: int) -> dict[str, Any]:
