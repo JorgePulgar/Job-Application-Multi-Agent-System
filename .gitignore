@@ -16,6 +16,8 @@ build/
 # Runtime data
 data/state.db
 data/drafts/
+data/evals/
+data/graph_checkpoints.db
 
 # User configs (allow examples only)
 config/users/*.yaml

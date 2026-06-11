@@ -246,6 +246,24 @@ def _check_specificity(body_folded: str, dossier: CompanyDossier | None, empresa
     return []
 
 
+def specificity_issues(body: str, dossier: CompanyDossier | None, empresa: str) -> list[str]:
+    """Return the specificity issues for a draft body (public wrapper for evals).
+
+    Reuses the internal specificity rule so the Phase 10.5 eval harness scores
+    drafts with the exact check the draft node enforces: the body must name the
+    company and, when a dossier is available, cite at least one concrete fact.
+
+    Args:
+        body: Draft body text (unfolded; folding is applied internally).
+        dossier: Company research dossier, or ``None`` if unavailable.
+        empresa: Company name.
+
+    Returns:
+        A list of issue strings; empty when the body is specific enough.
+    """
+    return _check_specificity(_fold(body), dossier, empresa)
+
+
 def _check_ai_disclosure(body: str) -> list[str]:
     """Return an issue if the body discloses AI assistance."""
     for pattern in _AI_DISCLOSURE_PATTERNS:
