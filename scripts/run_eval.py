@@ -153,6 +153,11 @@ def _aggregate(per_item: list[dict[str, Any]]) -> dict[str, float]:
     return {name: round(sums[name] / counts[name], 4) for name in sums}
 
 
+def _fmt(aggregate: dict[str, float], name: str) -> str:
+    """Format a score, or ``n/a`` when it was never measured this run."""
+    return f"{aggregate[name]:.3f}" if name in aggregate else "n/a (not measured this run)"
+
+
 def _write_baseline(run_name: str, count: int, aggregate: dict[str, float]) -> None:
     """Write docs/eval-baseline.md with this run's aggregate as the baseline."""
     lines = [
@@ -174,11 +179,11 @@ def _write_baseline(run_name: str, count: int, aggregate: dict[str, float]) -> N
         "| Score | Meaning | Baseline |",
         "| --- | --- | --- |",
         "| `verdict_agreement` | Graph verdict vs reference (1 exact, 0.5 near-miss) | "
-        f"{aggregate.get('verdict_agreement', float('nan')):.3f} |",
+        f"{_fmt(aggregate, 'verdict_agreement')} |",
         "| `faithfulness` | No invented company/offer facts (LLM judge, gpt-4o) | "
-        f"{aggregate.get('faithfulness', float('nan')):.3f} |",
+        f"{_fmt(aggregate, 'faithfulness')} |",
         "| `specificity` | Draft cites ≥1 concrete company fact (drafted items only) | "
-        f"{aggregate.get('specificity', float('nan')):.3f} |",
+        f"{_fmt(aggregate, 'specificity')} |",
         "",
         f"Run `{run_name}` over {count} item(s).",
         "",

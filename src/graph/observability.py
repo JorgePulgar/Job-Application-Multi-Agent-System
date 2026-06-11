@@ -105,11 +105,17 @@ def instrument_node(name: str, fn: F) -> F:
         client = _get_client()
         if client is None:
             return await fn(state)
+        from langgraph.errors import GraphInterrupt
+
         try:
             with client.start_as_current_observation(name=name):
                 out = await fn(state)
                 client.update_current_span(output={"keys": sorted(out)})
                 return out
+        except GraphInterrupt:
+            # interrupt() raises this to PAUSE the graph -- a control-flow signal,
+            # not an error. Let it propagate; never swallow or re-run the node.
+            raise
         except Exception as exc:  # tracing must never break the graph
             logger.warning("langfuse_span_failed", node=name, error=str(exc))
             return await fn(state)
