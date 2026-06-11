@@ -6,20 +6,40 @@ Wire the subgraph into the daily pipeline behind a flag, replacing the linear
 persist results to the existing tables so the dashboard is unchanged.
 
 ## Acceptance criteria
-- [ ] Config flag `use_langgraph_eval` (default off) in the existing config layer.
+- [x] Config flag `use_langgraph_eval` (default off) in the existing config layer.
       When on, the orchestrator invokes `evaluate_and_draft` per offer instead of
       calling `ViabilityEvaluator`/`ApplicationWriter` directly.
-- [ ] Per offer, the orchestrator builds initial state `{offer_id, username}` and
+      _`Settings.use_langgraph_eval` (default `False`); stage-4 branch in
+      `run_for_user` calls `Orchestrator._eval_draft_graph`, superseding both the
+      v1 evaluate and write stages._
+- [x] Per offer, the orchestrator builds initial state `{offer_id, username}` and
       invokes the compiled graph with the SqliteSaver + `thread_id`.
-- [ ] On graph completion: `FitAssessment.to_evaluation_row()` writes the
+      _`build_graph(open_checkpointer(), client, session_factory=_shared)`;
+      `thread_config(username, offer_id)`. Graph nodes share the orchestrator's
+      session (no-commit factory) so SQLite never opens a second writer and research
+      cache-hits; offers processed sequentially._
+- [x] On graph completion: `FitAssessment.to_evaluation_row()` writes the
       `evaluations` row; `CoverLetterDraft` writes the `drafts` row;
       `needs_manual_context` maps to the existing draft state. Offer `estado`
       transitions match v1 semantics so the dashboard + FastAPI need no changes.
-- [ ] Interrupts are surfaced in the run summary; a paused offer is resumable on
+      _`_upsert_evaluation` (evaluada / razon_descarte on skip);
+      `draft_persistence.save_graph_draft` (pendiente→borrador_generado, or
+      needs_manual_context→stays evaluada). recomendacion stays aplicar/dudar/descartar._
+- [~] Interrupts are surfaced in the run summary; a paused offer is resumable on
       the next run via its `thread_id` (the dashboard "review" action supplies the
       `HumanDecision`).
-- [ ] With the flag off, v1 behavior is byte-for-byte unchanged.
-- [ ] `mypy --strict` passes on touched orchestrator code.
+      _**DEFERRED BY DESIGN (decided with user 2026-06-11): Autonomous mode.** The
+      orchestrator auto-resumes the `human_review` interrupt by mirroring the model's
+      verdict, so drafts are produced unattended and HITL stays at draft-review in the
+      dashboard (exactly v1) — this is what keeps AC#3/#5 "dashboard unchanged" true.
+      `interrupt()` is retained in the graph; flipping to pause+resume is a small
+      orchestrator change once a mid-pipeline review UI exists (separate task)._
+- [x] With the flag off, v1 behavior is byte-for-byte unchanged.
+      _Flag-off path is the original code verbatim; `test_flag_off_uses_v1_path`
+      asserts the graph path is never called and the v1 evaluator runs._
+- [x] `mypy --strict` passes on touched orchestrator code.
+      _`mypy --strict` green on all 64 files; compiled graph annotated `Any` to avoid
+      langgraph's RunnableConfig/Command overloads fighting a plain dict config._
 
 ## Files to create / modify
 - `src/orchestrator.py`

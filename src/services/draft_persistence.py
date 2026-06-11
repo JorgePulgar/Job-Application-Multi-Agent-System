@@ -16,10 +16,11 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.db.enums import OfferEstado
+from src.db.enums import DraftEstado, OfferEstado
 from src.db.models import Draft as DbDraft
 from src.db.models import Offer
 from src.models.draft import Draft
+from src.models.fit import CoverLetterDraft
 from src.models.user_profile import UserProfile
 
 logger = structlog.get_logger(__name__)
@@ -116,6 +117,121 @@ def _upsert_db_row(draft: Draft, offer: Offer, session: Session) -> DbDraft:
     existing.intento_num += 1
     existing.updated_at = _now()
     return existing
+
+
+def _cover_letter_markdown(
+    draft: CoverLetterDraft | None, offer: Offer, *, needs_manual_context: bool
+) -> str:
+    """Render the markdown mirror for a graph-produced cover-letter draft."""
+    score: int | str = offer.evaluation.puntuacion if offer.evaluation else "N/A"
+    recomendacion = offer.evaluation.recomendacion if offer.evaluation else "N/A"
+    parts = [
+        "---",
+        f"offer_url: {offer.url or ''}",
+        f"empresa: {offer.empresa}",
+        f"score: {score}",
+        f"recomendacion: {recomendacion}",
+        f"needs_manual_context: {str(needs_manual_context).lower()}",
+        "---",
+        "",
+    ]
+    if needs_manual_context or draft is None:
+        parts += [
+            "> ⚠️ **NECESITA CONTEXTO MANUAL**",
+            "",
+            f"# {offer.titulo} — {offer.empresa}",
+            "",
+            "_(no se generó borrador automático)_",
+            "",
+        ]
+        return "\n".join(parts)
+
+    parts += [
+        f"# {offer.titulo} — {offer.empresa}",
+        "",
+        "## Asunto",
+        draft.subject or "_(sin asunto)_",
+        "",
+        "## Cuerpo",
+        draft.body or "_(sin cuerpo)_",
+        "",
+        f"_Gancho:_ {draft.hook}",
+        "",
+    ]
+    return "\n".join(parts)
+
+
+def save_graph_draft(
+    draft: CoverLetterDraft | None,
+    *,
+    offer: Offer,
+    user: UserProfile,
+    needs_manual_context: bool,
+    db_session: Session,
+) -> Path:
+    """Persist a LangGraph ``CoverLetterDraft`` to the DB and a markdown file.
+
+    Mirrors :func:`save_draft` for the Phase 10.5 graph path: idempotent on
+    ``offer_id`` (one row per offer), moves the offer to ``borrador_generado`` for
+    a shipped draft, leaves it at ``evaluada`` when flagged ``needs_manual_context``.
+    The graph draft carries a single ``body`` (email + letter combined), stored in
+    ``cuerpo_email``; ``carta_presentacion`` stays ``None``.
+
+    Args:
+        draft: The generated cover-letter draft, or ``None`` when flagged.
+        offer: The DB offer the draft answers (attached to ``db_session``).
+        user: The user profile (used for the per-user folder).
+        needs_manual_context: ``True`` when no shippable draft was produced.
+        db_session: Active session; the caller owns commit/rollback.
+
+    Returns:
+        Path to the written markdown file.
+    """
+    shipped = draft is not None and not needs_manual_context
+    estado = DraftEstado.pendiente if shipped else DraftEstado.needs_manual_context
+
+    existing = db_session.scalars(select(DbDraft).where(DbDraft.offer_id == offer.id)).first()
+    asunto = draft.subject if shipped and draft is not None else None
+    cuerpo = draft.body if shipped and draft is not None else None
+    if existing is None:
+        row = DbDraft(
+            offer_id=offer.id,
+            user_id=offer.user_id,
+            asunto=asunto,
+            cuerpo_email=cuerpo,
+            carta_presentacion=None,
+            estado=estado,
+        )
+        row.updated_at = _now()
+        db_session.add(row)
+    else:
+        existing.asunto = asunto
+        existing.cuerpo_email = cuerpo
+        existing.carta_presentacion = None
+        existing.estado = estado
+        existing.intento_num += 1
+        existing.updated_at = _now()
+
+    if shipped:
+        offer.estado = OfferEstado.borrador_generado
+    db_session.flush()
+
+    out_dir = _DRAFTS_ROOT / user.username
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / _draft_filename(offer, _now().date())
+    path.write_text(
+        _cover_letter_markdown(draft, offer, needs_manual_context=needs_manual_context),
+        encoding="utf-8",
+    )
+
+    logger.info(
+        "graph_draft_saved",
+        offer_id=offer.id,
+        username=user.username,
+        needs_manual_context=needs_manual_context,
+        path=str(path),
+    )
+    return path
 
 
 def save_draft(draft: Draft, offer: Offer, user: UserProfile, db_session: Session) -> Path:

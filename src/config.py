@@ -64,6 +64,15 @@ class Settings(BaseSettings):
         default=False, description="Emit JSON logs (true in CI) instead of pretty console output"
     )
 
+    # Phase 10.5 — LangGraph evaluate_and_draft subgraph
+    use_langgraph_eval: bool = Field(
+        default=False,
+        description=(
+            "When true, the orchestrator runs the LangGraph evaluate_and_draft "
+            "subgraph per offer instead of the v1 ViabilityEvaluator/ApplicationWriter."
+        ),
+    )
+
 
 class ConfigurationError(RuntimeError):
     """Raised when required environment variables are missing."""

@@ -7,13 +7,15 @@ from __future__ import annotations
 
 import asyncio
 import datetime
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import structlog
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from src.agents.application_writer import ApplicationWriter
 from src.agents.company_researcher import CompanyResearcher
@@ -24,6 +26,8 @@ from src.db.base import get_session
 from src.db.enums import OfferEstado, RunEstado
 from src.db.models import Company, Evaluation, Offer, RunLog, User
 from src.models.evaluation import ViabilityEvaluation
+from src.models.fit import CoverLetterDraft, FitAssessment
+from src.models.user_profile import UserProfile
 from src.services import draft_persistence, telegram
 from src.services.azure_openai import AzureOpenAIClient
 from src.services.profiles import load_profile, upsert_user_row
@@ -72,6 +76,35 @@ def _eval_from_row(ev: Evaluation) -> ViabilityEvaluation:
         recomendacion=ev.recomendacion,  # type: ignore[arg-type]
         reasoning=ev.razonamiento or "",
     )
+
+
+def _upsert_evaluation(session: Session, offer: Offer, fit: FitAssessment) -> None:
+    """Write or replace the ``evaluations`` row for an offer from a graph FitAssessment.
+
+    Mirrors the v1 evaluator's persistence semantics: sets ``offer.estado`` to
+    ``evaluada`` and records ``razon_descarte`` on a skip verdict. Idempotent on
+    ``offer_id`` so a re-processed offer updates its row instead of violating the
+    unique constraint.
+
+    Args:
+        session: Active session owned by the caller.
+        offer: The offer being evaluated (attached to ``session``).
+        fit: The graph's fit assessment to persist.
+    """
+    row = fit.to_evaluation_row(offer.id)
+    existing = session.scalars(select(Evaluation).where(Evaluation.offer_id == offer.id)).first()
+    if existing is None:
+        session.add(row)
+    else:
+        existing.puntuacion = row.puntuacion
+        existing.pros = row.pros
+        existing.contras = row.contras
+        existing.recomendacion = row.recomendacion
+        existing.razonamiento = row.razonamiento
+    offer.estado = OfferEstado.evaluada
+    if fit.recommendation == "skip":
+        offer.razon_descarte = (fit.reasoning or "")[:200]
+    session.flush()
 
 
 async def run_per_offer(
@@ -201,6 +234,7 @@ class Orchestrator:
         tracker = UsageTracker()
         client = AzureOpenAIClient(tracker=tracker)
         profile = load_profile(username)
+        use_graph = get_settings().use_langgraph_eval
 
         fecha_inicio = _now()
         errors: list[dict[str, Any]] = []
@@ -305,7 +339,7 @@ class Orchestrator:
                         count=len(unique_names),
                     )
 
-                # --- Stage 4: Evaluate ---
+                # --- Stage 4: Evaluate (+ draft, when the LangGraph path is on) ---
                 if "evaluate" not in self._skip:
                     investig = list(
                         session.execute(
@@ -317,20 +351,38 @@ class Orchestrator:
                             .where(Offer.company_id.is_not(None))
                         ).scalars()
                     )
-                    eval_agent = ViabilityEvaluator(client, session)
 
-                    async def _do_eval(offer: Offer) -> None:
-                        co_row = session.get(Company, offer.company_id)
-                        if co_row is None:
-                            return
-                        await eval_agent.evaluate(offer, co_row, profile)
+                    if use_graph:
+                        # LangGraph path: assess + draft per offer in one subgraph,
+                        # superseding both the v1 evaluate and write stages.
+                        evaluated, shipped, manual = await self._eval_draft_graph(
+                            session, profile, investig, client, errors
+                        )
+                        draft_count[0] += shipped + manual
+                        manual_count[0] += manual
+                        log.info(
+                            "stage_done",
+                            stage="evaluate_and_draft_graph",
+                            username=username,
+                            count=evaluated,
+                        )
+                    else:
+                        eval_agent = ViabilityEvaluator(client, session)
 
-                    await run_per_offer("evaluate", investig, _do_eval, errors, self._concurrency)
-                    evaluated = sum(1 for o in investig if o.estado == OfferEstado.evaluada)
-                    log.info("stage_done", stage="evaluate", username=username)
+                        async def _do_eval(offer: Offer) -> None:
+                            co_row = session.get(Company, offer.company_id)
+                            if co_row is None:
+                                return
+                            await eval_agent.evaluate(offer, co_row, profile)
 
-                # --- Stage 5: Write drafts ---
-                if "write" not in self._skip:
+                        await run_per_offer(
+                            "evaluate", investig, _do_eval, errors, self._concurrency
+                        )
+                        evaluated = sum(1 for o in investig if o.estado == OfferEstado.evaluada)
+                        log.info("stage_done", stage="evaluate", username=username)
+
+                # --- Stage 5: Write drafts (v1 path only; graph path drafts above) ---
+                if not use_graph and "write" not in self._skip:
                     evaluada = list(
                         session.execute(
                             select(Offer)
@@ -422,6 +474,110 @@ class Orchestrator:
             success=fatal is None,
             fatal_error=fatal,
         )
+
+    async def _eval_draft_graph(
+        self,
+        session: Session,
+        profile: UserProfile,
+        candidates: list[Offer],
+        client: AzureOpenAIClient,
+        errors: list[dict[str, Any]],
+    ) -> tuple[int, int, int]:
+        """Run the ``evaluate_and_draft`` subgraph per offer (autonomous mode).
+
+        Replaces the v1 evaluate + write stages when ``use_langgraph_eval`` is on.
+        The human-review ``interrupt()`` is auto-resumed by mirroring the model's
+        own verdict, so a draft is produced unattended for dashboard review (the
+        HITL checkpoint stays at draft review, exactly as v1). Offers are processed
+        sequentially because they share the orchestrator's session. Per-offer errors
+        are isolated (offer -> ``error`` state) like :func:`run_per_offer`.
+
+        Args:
+            session: The orchestrator's active session (shared with graph nodes).
+            profile: The user profile being processed.
+            candidates: Researched offers to evaluate + draft.
+            client: Azure OpenAI client (token-tracked).
+            errors: Mutable error list; per-offer failures are appended.
+
+        Returns:
+            ``(evaluated, drafts_shipped, drafts_manual_context)``.
+        """
+        from langgraph.types import Command
+
+        from src.graph.build import build_graph, open_checkpointer, thread_config
+
+        username = profile.username
+
+        @contextmanager
+        def _shared() -> Iterator[Session]:
+            # Graph nodes reuse the orchestrator's session so they see uncommitted
+            # state (research cache hits) and never open a second SQLite writer.
+            yield session
+
+        evaluated = 0
+        shipped = 0
+        manual = 0
+
+        async with open_checkpointer() as saver:
+            # Treat the compiled graph as Any: langgraph's precise ainvoke/aget_state
+            # overloads (RunnableConfig, Command generics) fight a plain dict config.
+            graph: Any = build_graph(saver, client=client, session_factory=_shared)
+            for offer in candidates:
+                try:
+                    cfg = thread_config(username, offer.id)
+                    result = await graph.ainvoke(
+                        {"offer_id": offer.id, "username": username}, config=cfg
+                    )
+                    if "__interrupt__" in result:
+                        pre: FitAssessment = (await graph.aget_state(cfg)).values["fit"]
+                        await graph.ainvoke(
+                            Command(
+                                resume={
+                                    "decision": pre.recommendation,
+                                    "lead_angle": None,
+                                    "clarifications": {},
+                                }
+                            ),
+                            config=cfg,
+                        )
+                    vals = (await graph.aget_state(cfg)).values
+                    fit: FitAssessment = vals["fit"]
+                    _upsert_evaluation(session, offer, fit)
+                    evaluated += 1
+                    if fit.recommendation == "skip":
+                        continue
+                    draft: CoverLetterDraft | None = vals.get("draft")
+                    nmc = bool(vals.get("needs_manual_context", False))
+                    draft_persistence.save_graph_draft(
+                        draft,
+                        offer=offer,
+                        user=profile,
+                        needs_manual_context=nmc,
+                        db_session=session,
+                    )
+                    if nmc or draft is None:
+                        manual += 1
+                    else:
+                        shipped += 1
+                except (KeyboardInterrupt, SystemExit):
+                    raise
+                except Exception as exc:
+                    offer.estado = OfferEstado.error
+                    offer.error_note = f"{type(exc).__name__}: {str(exc)[:200]}"
+                    errors.append(
+                        {
+                            "stage": "evaluate_and_draft_graph",
+                            "offer_hash": offer.hash_unico,
+                            "error_class": type(exc).__name__,
+                            "message": str(exc)[:200],
+                        }
+                    )
+                    log.warning(
+                        "graph_stage_error",
+                        offer_id=offer.id,
+                        error_class=type(exc).__name__,
+                    )
+        return evaluated, shipped, manual
 
     async def run_for_all_users(self) -> list[RunResult]:
         """Run the pipeline sequentially for every user, then post a Telegram summary.
