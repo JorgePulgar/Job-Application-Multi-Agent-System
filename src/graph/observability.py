@@ -124,16 +124,22 @@ def instrument_node(name: str, fn: F) -> F:
 
 
 @asynccontextmanager
-async def trace_run(thread_id: str, *, username: str, offer_id: int) -> AsyncIterator[None]:
+async def trace_run(
+    thread_id: str, *, username: str, offer_id: int, session_id: str | None = None
+) -> AsyncIterator[None]:
     """Open one Langfuse trace for an application run, or a null context.
 
-    Sets ``session_id`` (the ``thread_id``) and ``user_id`` (the username) so all
-    nested node spans and LLM generations group into one filterable trace.
+    Sets ``user_id`` (the username) and a ``session_id`` so nested node spans and
+    LLM generations group into one filterable trace, and traces sharing a
+    ``session_id`` group into one Langfuse session.
 
     Args:
-        thread_id: Stable id naming the trace (``f"{username}:{offer_id}"``).
+        thread_id: Stable id naming the trace (e.g. ``f"{run}:{offer_id}:{user}"``).
         username: Profile username (not PII; used as ``user_id``).
         offer_id: Offer DB id.
+        session_id: Session to group this trace under. Defaults to ``thread_id``
+            (one session per trace); pass a run-level id to group every offer of a
+            run into a single session.
 
     Yields:
         Nothing; the body runs inside the trace when tracing is enabled.
@@ -151,7 +157,7 @@ async def trace_run(thread_id: str, *, username: str, offer_id: int) -> AsyncIte
             stack.enter_context(
                 propagate_attributes(
                     trace_name=thread_id,
-                    session_id=thread_id,
+                    session_id=session_id or thread_id,
                     user_id=username,
                     tags=_TRACE_TAGS,
                     metadata={"offer_id": str(offer_id)},

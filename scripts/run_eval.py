@@ -256,7 +256,10 @@ async def run(dataset: Path, write_baseline: bool) -> None:
             offer_id = int(item["input"]["offer_id"])
             username = str(item["input"]["username"])
             thread_id = _thread_id(run_name, offer_id, username)
-            async with o.trace_run(thread_id, username=username, offer_id=offer_id):
+            # session_id = run_name groups every offer of this run into one Langfuse session.
+            async with o.trace_run(
+                thread_id, username=username, offer_id=offer_id, session_id=run_name
+            ):
                 values = await _run_item(graph, item, run_name)
                 scores = await _score_item(item, values, judge)
                 _record_langfuse(scores)
