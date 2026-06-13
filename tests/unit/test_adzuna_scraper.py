@@ -104,7 +104,13 @@ def test_parse_result_empty_location() -> None:
 
 
 @pytest.mark.asyncio
-async def test_missing_credentials_raises() -> None:
+async def test_missing_credentials_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Hermetic: ignore any real keys in a developer .env by making the settings
+    # fallback unavailable, so the empty constructor args trigger the error path.
+    def _no_settings() -> object:
+        raise RuntimeError("settings unavailable")
+
+    monkeypatch.setattr("src.config.get_settings", _no_settings)
     with pytest.raises(MissingCredentialsError):
         async with AdzunaScraper(app_id="", app_key=""):
             pass

@@ -14,6 +14,7 @@ from src.agents.job_scraper.base import BaseScraper
 from src.exceptions import MissingCredentialsError, ScraperError
 from src.models.job_offer import JobOffer, Modalidad
 from src.models.user_profile import UserProfile
+from src.services.experience_filter import matches, query_terms
 
 log = structlog.get_logger(__name__)
 
@@ -156,12 +157,19 @@ class JoobleScraper(BaseScraper):
             )
         return self
 
-    async def _fetch_page(self, role: str, page: int) -> list[dict[str, Any]]:
+    async def _fetch_page(
+        self, role: str, page: int, extra_keywords: str | None = None
+    ) -> list[dict[str, Any]]:
         """POST one page of Jooble results for *role*.
+
+        Jooble's public API has no seniority/experience parameter, so experience
+        biasing is done by appending keywords to the free-text ``keywords`` field;
+        the real guarantee is the post-fetch filter in :meth:`search`.
 
         Args:
             role: Job title / keyword to search for.
             page: 1-based page number.
+            extra_keywords: Optional seniority keywords appended to ``keywords``.
 
         Returns:
             List of raw job dicts from the API.
@@ -170,7 +178,8 @@ class JoobleScraper(BaseScraper):
             ScraperError: On non-2xx API responses.
         """
         url = f"{_BASE_URL}/{self._api_key}"
-        payload = {"keywords": role, "location": "Spain", "page": page}
+        keywords = f"{role} {extra_keywords}".strip() if extra_keywords else role
+        payload = {"keywords": keywords, "location": "Spain", "page": page}
 
         async with self.semaphore:
             log.debug("jooble fetch", role=role, page=page)
@@ -200,10 +209,13 @@ class JoobleScraper(BaseScraper):
         seen: set[str] = set()
         offers: list[JobOffer] = []
 
+        level = profile.experience_level
+        extra_keywords = " ".join(query_terms(level)) if level else None
+
         for role in profile.target_roles:
             for page in range(1, _MAX_PAGES + 1):
                 try:
-                    jobs = await self._fetch_page(role, page)
+                    jobs = await self._fetch_page(role, page, extra_keywords=extra_keywords)
                 except ScraperError:
                     log.warning("jooble fetch failed", role=role, page=page)
                     break
@@ -213,9 +225,11 @@ class JoobleScraper(BaseScraper):
 
                 for raw in jobs:
                     offer = _parse_result(raw)
+                    if level and not matches(level, offer.titulo, offer.descripcion or ""):
+                        continue
                     if offer.hash_unico not in seen:
                         seen.add(offer.hash_unico)
                         offers.append(offer)
 
-        log.info("jooble search complete", total=len(offers))
+        log.info("jooble search complete", total=len(offers), experience_level=level)
         return offers

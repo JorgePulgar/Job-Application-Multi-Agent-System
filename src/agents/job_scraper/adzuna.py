@@ -15,6 +15,7 @@ from src.agents.job_scraper.base import BaseScraper
 from src.exceptions import MissingCredentialsError, ScraperError
 from src.models.job_offer import JobOffer, Modalidad
 from src.models.user_profile import UserProfile
+from src.services.experience_filter import matches, query_terms
 
 log = structlog.get_logger(__name__)
 
@@ -114,12 +115,17 @@ class AdzunaScraper(BaseScraper):
             await asyncio.sleep(_MIN_REQUEST_INTERVAL - elapsed)
         self._last_request_at = time.monotonic()
 
-    async def _fetch_page(self, role: str, page: int) -> list[dict[str, Any]]:
+    async def _fetch_page(
+        self, role: str, page: int, what_or: str | None = None
+    ) -> list[dict[str, Any]]:
         """Fetch one page of Adzuna results for *role*.
 
         Args:
             role: Job title / keyword to search for.
             page: 1-based page number.
+            what_or: Optional space-joined seniority keywords passed to Adzuna's
+                documented ``what_or`` param (results match ``what`` AND any of
+                these), biasing toward the user's experience level.
 
         Returns:
             List of raw result dicts from the API.
@@ -137,7 +143,9 @@ class AdzunaScraper(BaseScraper):
                 "results_per_page": _RESULTS_PER_PAGE,
                 "content-type": "application/json",
             }
-            log.debug("adzuna fetch", role=role, page=page)
+            if what_or:
+                params["what_or"] = what_or
+            log.debug("adzuna fetch", role=role, page=page, experience_biased=bool(what_or))
             response = await self.client.get(url, params=params)
 
         if response.status_code != 200:
@@ -163,18 +171,23 @@ class AdzunaScraper(BaseScraper):
         seen: set[str] = set()
         offers: list[JobOffer] = []
 
+        level = profile.experience_level
+        what_or = " ".join(query_terms(level)) if level else None
+
         for role in profile.target_roles:
             try:
-                results = await self._fetch_page(role, page=1)
+                results = await self._fetch_page(role, page=1, what_or=what_or)
             except ScraperError:
                 log.warning("adzuna search failed for role", role=role)
                 continue
 
             for raw in results:
                 offer = _parse_result(raw)
+                if level and not matches(level, offer.titulo, offer.descripcion or ""):
+                    continue
                 if offer.hash_unico not in seen:
                     seen.add(offer.hash_unico)
                     offers.append(offer)
 
-        log.info("adzuna search complete", total=len(offers))
+        log.info("adzuna search complete", total=len(offers), experience_level=level)
         return offers
