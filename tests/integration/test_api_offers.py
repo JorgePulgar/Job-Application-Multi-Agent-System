@@ -138,8 +138,11 @@ def test_plataforma_and_flags(client: TestClient) -> None:
     resp = client.get("/users/jorge/offers", params={"estado": "borrador_generado"})
     item = resp.json()["items"][0]
     assert item["has_draft"] is True
+    assert item["draft_id"] is not None  # deep-link target present
     resp_eval = client.get("/users/jorge/offers", params={"estado": "evaluada"})
-    assert resp_eval.json()["items"][0]["has_evaluation"] is True
+    eval_item = resp_eval.json()["items"][0]
+    assert eval_item["has_evaluation"] is True
+    assert eval_item["draft_id"] is None  # evaluated but no draft
 
 
 def test_invalid_estado_422(client: TestClient) -> None:

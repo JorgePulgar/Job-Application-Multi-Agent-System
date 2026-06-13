@@ -7,6 +7,8 @@ import type {
   HistoryResponse,
   MarkSentRequest,
   MarkSentResponse,
+  OfferCounts,
+  OfferListResponse,
   RegenerateResponse,
   UserOut,
 } from "./types";
@@ -65,6 +67,38 @@ export function getDrafts(
   return request<DraftListResponse>(
     `/users/${username}/drafts${qs ? `?${qs}` : ""}`,
   );
+}
+
+// ---------------------------------------------------------------------------
+// Offers list (all states, per user)
+// ---------------------------------------------------------------------------
+
+export function getOffers(
+  username: string,
+  params?: {
+    estado?: string;
+    bucket?: string;
+    plataforma?: string;
+    q?: string;
+    page?: number;
+    per_page?: number;
+  },
+): Promise<OfferListResponse> {
+  const qs = new URLSearchParams();
+  if (params?.estado) qs.set("estado", params.estado);
+  if (params?.bucket) qs.set("bucket", params.bucket);
+  if (params?.plataforma) qs.set("plataforma", params.plataforma);
+  if (params?.q) qs.set("q", params.q);
+  if (params?.page) qs.set("page", String(params.page));
+  if (params?.per_page) qs.set("per_page", String(params.per_page));
+  const s = qs.toString();
+  return request<OfferListResponse>(
+    `/users/${username}/offers${s ? `?${s}` : ""}`,
+  );
+}
+
+export function getOfferCounts(username: string): Promise<OfferCounts> {
+  return request<OfferCounts>(`/users/${username}/offers/counts`);
 }
 
 // ---------------------------------------------------------------------------

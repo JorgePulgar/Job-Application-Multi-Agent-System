@@ -180,6 +180,7 @@ class OfferListItem(BaseModel):
     razon_descarte: str | None
     has_draft: bool
     has_evaluation: bool
+    draft_id: int | None  # latest draft for deep-linking; None when no draft
 
 
 class OfferListResponse(BaseModel):

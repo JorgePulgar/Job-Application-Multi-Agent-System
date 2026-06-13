@@ -45,6 +45,35 @@ export interface OfferOut {
   estado: string;
 }
 
+export interface OfferListItem {
+  id: number;
+  titulo: string;
+  empresa: string;
+  ubicacion: string | null;
+  fuente: string;
+  url: string | null;
+  fecha_publicacion: string | null;
+  fecha_detectada: string;
+  estado: string;
+  razon_descarte: string | null;
+  has_draft: boolean;
+  has_evaluation: boolean;
+  draft_id: number | null;
+}
+
+export interface OfferListResponse {
+  items: OfferListItem[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export interface OfferCounts {
+  counts: Record<string, number>;
+  buckets: Record<string, number>;
+  total: number;
+}
+
 export interface CompanyOut {
   id: number;
   nombre: string;

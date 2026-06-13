@@ -81,9 +81,15 @@ def list_offers(
 
     has_evaluation = _eval_exists().label("has_evaluation")
     has_draft = select(Draft.id).where(Draft.offer_id == Offer.id).exists().label("has_draft")
+    latest_draft_id = (
+        select(func.max(Draft.id))
+        .where(Draft.offer_id == Offer.id)
+        .scalar_subquery()
+        .label("draft_id")
+    )
 
-    stmt: Select[tuple[Offer, bool, bool]] = (
-        select(Offer, has_evaluation, has_draft)
+    stmt: Select[tuple[Offer, bool, bool, int | None]] = (
+        select(Offer, has_evaluation, has_draft, latest_draft_id)
         .where(Offer.user_id == user.id)
         .order_by(Offer.fecha_detectada.desc(), Offer.id.desc())
     )
@@ -116,8 +122,9 @@ def list_offers(
             razon_descarte=offer.razon_descarte,
             has_draft=bool(draft_flag),
             has_evaluation=bool(eval_flag),
+            draft_id=draft_id,
         )
-        for offer, eval_flag, draft_flag in rows
+        for offer, eval_flag, draft_flag, draft_id in rows
     ]
 
     return OfferListResponse(items=items, total=total, page=page, per_page=per_page)
