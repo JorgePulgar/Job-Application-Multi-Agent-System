@@ -1,6 +1,8 @@
+import { SearchConfigForm } from "@/components/search-config-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getProfile } from "@/lib/api";
+import { getProfile, getSearchConfig } from "@/lib/api";
+import type { SearchConfig } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -99,8 +101,10 @@ export default async function SettingsPage({
   const { username } = await params;
 
   let profile: Profile;
+  let searchConfig: SearchConfig | null = null;
   try {
     profile = (await getProfile(username)) as Profile;
+    searchConfig = await getSearchConfig(username);
   } catch (e) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -109,19 +113,13 @@ export default async function SettingsPage({
     );
   }
 
-  const pref = profile.location_preference ?? {};
-
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">Ajustes</h1>
 
-      <p className="rounded-md border border-dashed bg-muted/40 p-3 text-sm text-muted-foreground">
-        Para editar, modifica{" "}
-        <code className="font-mono text-xs">
-          config/users/{username}.yaml
-        </code>{" "}
-        y vuelve a ejecutar <code className="font-mono text-xs">profile load</code>.
-      </p>
+      {searchConfig && (
+        <SearchConfigForm username={username} initial={searchConfig} />
+      )}
 
       <Section title="Datos personales">
         <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -134,41 +132,12 @@ export default async function SettingsPage({
         </dl>
       </Section>
 
-      <Section title="Objetivos">
-        <div>
-          <p className="mb-1 text-xs text-muted-foreground">Roles objetivo</p>
-          <Chips items={profile.target_roles} />
-        </div>
-        <div>
-          <p className="mb-1 text-xs text-muted-foreground">Sectores objetivo</p>
-          <Chips items={profile.target_sectors} />
-        </div>
-        <div>
-          <p className="mb-1 text-xs text-muted-foreground">Stack tecnológico</p>
-          <Chips items={profile.tech_stack} />
-        </div>
+      <Section title="Stack tecnológico">
+        <Chips items={profile.tech_stack} />
       </Section>
 
       <Section title="Idiomas">
         <Chips items={profile.languages} />
-      </Section>
-
-      <Section title="Preferencias">
-        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Field label="Modalidad" value={pref.modality} />
-          <Field
-            label="Salario mínimo"
-            value={
-              profile.min_salary
-                ? `${profile.min_salary.toLocaleString("es-ES")} €/año`
-                : undefined
-            }
-          />
-        </dl>
-        <div>
-          <p className="mb-1 text-xs text-muted-foreground">Ciudades</p>
-          <Chips items={pref.cities} />
-        </div>
       </Section>
 
       <Section title="Red flags">

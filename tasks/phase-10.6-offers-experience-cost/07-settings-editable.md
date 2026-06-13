@@ -6,21 +6,31 @@ each user can select what kind of offers to look for (roles, sectors, seniority,
 location, min salary) without touching YAML by hand. Backed by Task 06's API.
 
 ## Acceptance criteria
-- [ ] `dashboard/src/app/[username]/settings/page.tsx` renders an editable form
+- [x] `dashboard/src/app/[username]/settings/page.tsx` renders an editable form
       populated from `GET /users/{username}/search-config`, with inputs for:
       `target_roles` (add/remove list), `target_sectors` (add/remove list),
       `experience_level` (select: junior / mid / senior), `location_preference`
       (modality select + cities list), `min_salary` (number, optional).
-- [ ] Save calls `PUT /users/{username}/search-config`; success + validation-error
+      _`SearchConfigForm` client component fed by server-fetched `getSearchConfig`;
+      `ListInput` chip+add for roles/sectors/cities._
+- [x] Save calls `PUT /users/{username}/search-config`; success + validation-error
       (422) states are surfaced (toast via existing `ui/sonner`). On 422 the form
       keeps the user's input and shows the field error; nothing is silently lost.
-- [ ] Non-editable profile data (CV, experiences, education) is **not** shown as
+      _`putSearchConfig` → success/error `toast`; on error local state is retained
+      (no reset), 422 body shown in the toast message._
+- [x] Non-editable profile data (CV, experiences, education) is **not** shown as
       editable here — at most read-only, matching the API's editable allow-list.
-- [ ] Client-side guard rails mirror the server: `target_roles` cannot be emptied,
+      _Personal data / stack / languages / red flags / CV / experiences / education
+      / certs remain read-only `Section`s below the form._
+- [x] Client-side guard rails mirror the server: `target_roles` cannot be emptied,
       `min_salary` must be positive or blank, `experience_level` constrained to the
       three values.
-- [ ] Mobile-friendly, dark-mode consistent with the rest of the dashboard. No
+      _Empty-roles + non-positive-salary guarded before PUT; experience/modality are
+      `<select>` constrained to valid values._
+- [x] Mobile-friendly, dark-mode consistent with the rest of the dashboard. No
       TypeScript errors for touched files.
+      _Reuses shadcn `Card`/`Input`/`Button`/`Badge`; `pnpm tsc --noEmit` + `pnpm
+      lint` clean._
 
 ## Implementation notes
 - Today the page renders the raw YAML JSON from `GET /users/{username}/profile`

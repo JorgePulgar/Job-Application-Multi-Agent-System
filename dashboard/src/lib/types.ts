@@ -45,6 +45,19 @@ export interface OfferOut {
   estado: string;
 }
 
+export interface LocationPreferenceIO {
+  modality: string;
+  cities: string[];
+}
+
+export interface SearchConfig {
+  target_roles: string[];
+  target_sectors: string[];
+  experience_level: string | null;
+  location_preference: LocationPreferenceIO;
+  min_salary: number | null;
+}
+
 export interface OfferListItem {
   id: number;
   titulo: string;

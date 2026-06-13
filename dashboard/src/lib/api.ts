@@ -10,6 +10,7 @@ import type {
   OfferCounts,
   OfferListResponse,
   RegenerateResponse,
+  SearchConfig,
   UserOut,
 } from "./types";
 
@@ -173,4 +174,18 @@ export function getHistory(
 
 export function getProfile(username: string): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>(`/users/${username}/profile`);
+}
+
+export function getSearchConfig(username: string): Promise<SearchConfig> {
+  return request<SearchConfig>(`/users/${username}/search-config`);
+}
+
+export function putSearchConfig(
+  username: string,
+  body: SearchConfig,
+): Promise<SearchConfig> {
+  return request<SearchConfig>(`/users/${username}/search-config`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
 }
