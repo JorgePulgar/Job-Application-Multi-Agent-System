@@ -236,6 +236,7 @@ job-agent/
 - No multi-tenancy beyond 2 hardcoded users.
 - Phase 11 only after Phase 10 is explicitly approved.
 - **Phase 10.5 (LangGraph subgraph)** introduces no vector DB, no new Azure resource, and no LangChain-classic. SQLite-only still holds — the LangGraph checkpointer uses SQLite. Phase 10.5 runs before Phase 11. (Approved 2026-06-10.)
+- **Phase 10.6 (per-user offers, experience filtering, selectable search, cost optimization)** — decimal insert after 10.5, before Phase 11. Adds: per-user offer independence (composite unique `(user_id, hash_unico)` + migration); a read-only per-user scraped-offers dashboard view (incl. unanalyzed); a per-profile `experience_level` search filter in the scrapers (Jorge + Madalina both `junior`); a dashboard-editable per-user search config (write API + settings form, YAML stays source of truth); and a measured cost-reduction pass on the graph path guarded by the eval baseline. No constitution amendment, no new Azure resource, no LinkedIn scraping (direct LinkedIn access stays banned per §8). See `tasks/phase-10.6-offers-experience-cost/`. (Approved 2026-06-13.)
 
 ### Volume (Phase 11)
 
