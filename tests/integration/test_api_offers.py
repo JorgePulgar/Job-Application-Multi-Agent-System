@@ -158,3 +158,20 @@ def test_counts_endpoint(client: TestClient) -> None:
     assert data["counts"]["nueva"] == 2
     assert data["counts"]["filtrada"] == 1
     assert data["total"] == 5
+    # Only j_eval has an evaluation row → 1 analizada, 4 sin_analizar.
+    assert data["buckets"] == {"analizadas": 1, "sin_analizar": 4}
+
+
+def test_bucket_filter(client: TestClient) -> None:
+    sin = client.get("/users/jorge/offers", params={"bucket": "sin_analizar"})
+    assert sin.status_code == 200
+    assert sin.json()["total"] == 4
+    assert all(i["has_evaluation"] is False for i in sin.json()["items"])
+
+    ana = client.get("/users/jorge/offers", params={"bucket": "analizadas"})
+    assert ana.json()["total"] == 1
+    assert ana.json()["items"][0]["has_evaluation"] is True
+
+
+def test_invalid_bucket_422(client: TestClient) -> None:
+    assert client.get("/users/jorge/offers", params={"bucket": "bogus"}).status_code == 422

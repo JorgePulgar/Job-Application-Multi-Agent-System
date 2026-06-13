@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Select, func, select
+from sqlalchemy import Exists, Select, func, select
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
@@ -23,6 +23,18 @@ router = APIRouter(prefix="/users", tags=["offers"])
 DbSession = Annotated[Session, Depends(get_db)]
 
 _VALID_ESTADOS: frozenset[str] = frozenset(e.value for e in OfferEstado)
+
+# Review buckets derived from whether the offer has an evaluation row, NOT from
+# estado. An offer killed by the cheap offer_filter (estado=descartada) never got
+# an evaluation, so the user never reviewed it → "sin_analizar". Anything with an
+# evaluation (evaluada / borrador_generado / enviada / post-eval descartada) was
+# actually analyzed → "analizadas".
+_VALID_BUCKETS: frozenset[str] = frozenset({"sin_analizar", "analizadas"})
+
+
+def _eval_exists() -> Exists:
+    """Correlated EXISTS over an offer's evaluation row."""
+    return select(Evaluation.id).where(Evaluation.offer_id == Offer.id).exists()
 
 
 def _resolve_user(username: str, db: Session) -> User:
@@ -37,6 +49,7 @@ def list_offers(
     username: str,
     db: DbSession,
     estado: str | None = Query(default=None),
+    bucket: str | None = Query(default=None),
     plataforma: str | None = Query(default=None),
     q: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
@@ -48,25 +61,25 @@ def list_offers(
         username: Owner of the offers.
         db: Injected DB session.
         estado: Optional ``OfferEstado`` filter; ``None`` returns all states.
+        bucket: Optional review bucket (``sin_analizar`` / ``analizadas``),
+            derived from whether the offer has an evaluation row.
         plataforma: Optional source filter (matched against ``Offer.fuente``).
         q: Optional free-text filter over ``titulo`` / ``empresa``.
         page: 1-based page number.
         per_page: Page size (1-200).
 
     Raises:
-        HTTPException: 404 if the user is unknown, 422 for an invalid ``estado``.
+        HTTPException: 404 if the user is unknown, 422 for an invalid ``estado``
+            or ``bucket``.
     """
     user = _resolve_user(username, db)
 
     if estado is not None and estado not in _VALID_ESTADOS:
         raise HTTPException(status_code=422, detail=f"Invalid estado '{estado}'")
+    if bucket is not None and bucket not in _VALID_BUCKETS:
+        raise HTTPException(status_code=422, detail=f"Invalid bucket '{bucket}'")
 
-    has_evaluation = (
-        select(Evaluation.id)
-        .where(Evaluation.offer_id == Offer.id)
-        .exists()
-        .label("has_evaluation")
-    )
+    has_evaluation = _eval_exists().label("has_evaluation")
     has_draft = select(Draft.id).where(Draft.offer_id == Offer.id).exists().label("has_draft")
 
     stmt: Select[tuple[Offer, bool, bool]] = (
@@ -76,6 +89,10 @@ def list_offers(
     )
     if estado is not None:
         stmt = stmt.where(Offer.estado == estado)
+    if bucket == "sin_analizar":
+        stmt = stmt.where(~_eval_exists())
+    elif bucket == "analizadas":
+        stmt = stmt.where(_eval_exists())
     if plataforma is not None:
         stmt = stmt.where(Offer.fuente == plataforma)
     if q:
@@ -108,12 +125,18 @@ def list_offers(
 
 @router.get("/{username}/offers/counts", response_model=OfferCountsResponse)
 def offer_counts(username: str, db: DbSession) -> OfferCountsResponse:
-    """Return a per-estado offer count map for *username* (one grouped query)."""
+    """Return per-estado and per-review-bucket offer counts for *username*."""
     user = _resolve_user(username, db)
 
     rows = db.execute(
         select(Offer.estado, func.count()).where(Offer.user_id == user.id).group_by(Offer.estado)
     ).all()
-
     counts = {estado: int(count) for estado, count in rows}
-    return OfferCountsResponse(counts=counts, total=sum(counts.values()))
+    total = sum(counts.values())
+
+    analizadas: int = db.execute(
+        select(func.count()).select_from(Offer).where(Offer.user_id == user.id, _eval_exists())
+    ).scalar_one()
+    buckets = {"analizadas": analizadas, "sin_analizar": total - analizadas}
+
+    return OfferCountsResponse(counts=counts, buckets=buckets, total=total)

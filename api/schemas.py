@@ -192,9 +192,14 @@ class OfferListResponse(BaseModel):
 
 
 class OfferCountsResponse(BaseModel):
-    """Per-estado offer counts for a user (drives filter chips + badges)."""
+    """Per-estado and per-review-bucket offer counts for a user.
+
+    ``counts`` is keyed by raw ``OfferEstado``; ``buckets`` is keyed by review
+    bucket (``sin_analizar`` / ``analizadas``) derived from ``has_evaluation``.
+    """
 
     counts: dict[str, int]
+    buckets: dict[str, int]
     total: int
 
 
