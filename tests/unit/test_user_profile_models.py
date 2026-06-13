@@ -7,6 +7,7 @@ import yaml
 from pydantic import ValidationError
 
 from src.models.user_profile import (
+    ExperienceLevel,
     LocationPreference,
     Modality,
     UserProfile,
@@ -66,6 +67,41 @@ def test_minimal_profile_valid() -> None:
     assert profile.username == "jorge"
     assert profile.min_salary is None
     assert profile.experiences == []
+
+
+# ---------------------------------------------------------------------------
+# experience_level
+# ---------------------------------------------------------------------------
+
+
+def test_experience_level_defaults_none() -> None:
+    """Profiles without experience_level stay valid (backward-compatible)."""
+    profile = UserProfile.model_validate(MINIMAL_VALID)
+    assert profile.experience_level is None
+
+
+def test_experience_level_parsed() -> None:
+    profile = UserProfile.model_validate({**MINIMAL_VALID, "experience_level": "junior"})
+    assert profile.experience_level is ExperienceLevel.junior
+
+
+def test_experience_level_invalid_rejected() -> None:
+    with pytest.raises(ValidationError):
+        UserProfile.model_validate({**MINIMAL_VALID, "experience_level": "principiante"})
+
+
+def test_experience_level_year_range() -> None:
+    assert ExperienceLevel.junior.year_range == (0, 2)
+    assert ExperienceLevel.mid.year_range == (2, 5)
+    assert ExperienceLevel.senior.year_range == (5, None)
+
+
+def test_experience_level_keywords() -> None:
+    assert "junior" in ExperienceLevel.junior.keywords("es")
+    assert "becario" in ExperienceLevel.junior.keywords("es")
+    assert "entry level" in ExperienceLevel.junior.keywords("en")
+    # Unknown language falls back to English.
+    assert ExperienceLevel.senior.keywords("fr") == ExperienceLevel.senior.keywords("en")
 
 
 def test_full_profile_valid() -> None:

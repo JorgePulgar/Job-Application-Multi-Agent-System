@@ -21,6 +21,59 @@ class Modality(StrEnum):
     onsite = "onsite"
 
 
+# Inclusive years-of-experience range per level; upper bound ``None`` = open-ended.
+_EXPERIENCE_YEARS: dict[str, tuple[int, int | None]] = {
+    "junior": (0, 2),
+    "mid": (2, 5),
+    "senior": (5, None),
+}
+
+# Per-language search keywords used to bias scraper queries toward a seniority.
+_EXPERIENCE_KEYWORDS: dict[str, dict[str, list[str]]] = {
+    "junior": {
+        "es": ["junior", "trainee", "becario", "prácticas", "sin experiencia"],
+        "en": ["junior", "entry level", "graduate", "trainee", "intern"],
+    },
+    "mid": {
+        "es": ["semi-senior", "ssr", "mid", "intermedio"],
+        "en": ["mid", "mid-level", "intermediate"],
+    },
+    "senior": {
+        "es": ["senior", "sénior", "lead", "principal"],
+        "en": ["senior", "lead", "staff", "principal"],
+    },
+}
+
+
+class ExperienceLevel(StrEnum):
+    """Seniority a user is searching for, driving experience-based filtering.
+
+    The single source of truth for the level → years-of-experience mapping and
+    the per-language search keywords; both the scrapers (Task 05) and any future
+    locale-aware prompt reuse these instead of redefining them.
+    """
+
+    junior = "junior"
+    mid = "mid"
+    senior = "senior"
+
+    @property
+    def year_range(self) -> tuple[int, int | None]:
+        """Return the inclusive ``(min_years, max_years)`` for this level.
+
+        ``max_years`` is ``None`` for ``senior`` (open-ended).
+        """
+        return _EXPERIENCE_YEARS[self.value]
+
+    def keywords(self, lang: str) -> list[str]:
+        """Return search keywords for this level in *lang* (``"es"``/``"en"``).
+
+        Falls back to English keywords for any unrecognised language.
+        """
+        by_lang = _EXPERIENCE_KEYWORDS[self.value]
+        return by_lang.get(lang, by_lang["en"])
+
+
 class Experience(BaseModel):
     """A single work experience entry."""
 
@@ -79,6 +132,7 @@ class UserProfile(BaseModel):
     tech_stack: list[str] = Field(default_factory=list)
     languages: list[str] = Field(default_factory=list)
     min_salary: int | None = None
+    experience_level: ExperienceLevel | None = None
     location_preference: LocationPreference
     red_flags: list[str] = Field(default_factory=list)
     cv_summary: str

@@ -38,6 +38,9 @@ languages:
 
 min_salary: 50000
 
+# Seniority to search for: junior (0-2 yrs) | mid (2-5 yrs) | senior (5+ yrs)
+experience_level: junior
+
 location_preference:
   modality: hybrid
   cities:

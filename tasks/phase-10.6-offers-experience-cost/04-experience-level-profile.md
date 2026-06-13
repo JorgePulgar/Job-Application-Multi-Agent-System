@@ -7,23 +7,31 @@ year-range and level → search-keyword mapping once, in the model, as the singl
 source of truth.
 
 ## Acceptance criteria
-- [ ] New `ExperienceLevel(StrEnum)` in `src/models/user_profile.py`:
+- [x] New `ExperienceLevel(StrEnum)` in `src/models/user_profile.py`:
       `junior`, `mid`, `senior`. Each maps to an inclusive year range
       (`junior = 0–2`, `mid = 2–5`, `senior = 5+`) via a `year_range` property
       → `tuple[int, int | None]`.
-- [ ] `UserProfile` gains `experience_level: ExperienceLevel | None = None`
+      _Backed by module-level `_EXPERIENCE_YEARS`; `senior` upper bound `None`._
+- [x] `UserProfile` gains `experience_level: ExperienceLevel | None = None`
       (optional ⇒ existing profiles stay valid; `None` = no seniority filter).
       Google-style docstrings on field + enum.
-- [ ] Per-language search-keyword lists per level (es + en) on the enum/model,
+      _Field added; enum + `year_range`/`keywords` documented. Exported from
+      `src/models/__init__.py`._
+- [x] Per-language search-keyword lists per level (es + en) on the enum/model,
       e.g. `junior` ⇒ es: `["junior", "trainee", "becario", "prácticas",
       "sin experiencia"]` / en: `["junior", "entry level", "graduate", "trainee"]`;
       `senior` ⇒ es: `["senior", "sénior", "lead"]` / en: `["senior", "lead",
       "staff"]`. Consumed by Task 05 — defined here.
-- [ ] Both real YAMLs **and** both `*.yaml.example` get
+      _`_EXPERIENCE_KEYWORDS` + `ExperienceLevel.keywords(lang)`; unknown lang →
+      English fallback._
+- [x] Both real YAMLs **and** both `*.yaml.example` get
       `experience_level: junior` (decided 2026-06-13: **Jorge and Madalina are
       both junior / no experience**) with an inline comment explaining the levels.
-- [ ] `mypy --strict` passes; unit test: enum→year_range, enum→keywords(lang),
+      _All four files set `experience_level: junior`; verified all four load via
+      `UserProfile.from_yaml`._
+- [x] `mypy --strict` passes; unit test: enum→year_range, enum→keywords(lang),
       profile loads with and without the field, bad value rejected.
+      _mypy --strict green; 5 new tests in `test_user_profile_models.py` (41 pass)._
 
 ## Implementation notes
 - `UserProfile.from_yaml` does `model_validate`; an optional field with a default
