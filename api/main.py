@@ -7,7 +7,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import drafts, history, profile, users
+from api.routers import drafts, history, offers, profile, users
 
 app = FastAPI(title="Job Agent API", version="1.0.0")
 
@@ -26,6 +26,7 @@ app.add_middleware(
 app.include_router(users.router)
 app.include_router(drafts.router)
 app.include_router(history.router)
+app.include_router(offers.router)
 app.include_router(profile.router)
 
 

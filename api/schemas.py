@@ -161,6 +161,44 @@ class RegenerateResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Offers list (all states, per user)
+# ---------------------------------------------------------------------------
+
+
+class OfferListItem(BaseModel):
+    """Summary row for the scraped-offers list view (any estado)."""
+
+    id: int
+    titulo: str
+    empresa: str
+    ubicacion: str | None
+    fuente: str
+    url: str | None
+    fecha_publicacion: datetime.datetime | None
+    fecha_detectada: datetime.datetime
+    estado: str
+    razon_descarte: str | None
+    has_draft: bool
+    has_evaluation: bool
+
+
+class OfferListResponse(BaseModel):
+    """Paginated scraped-offers listing."""
+
+    items: list[OfferListItem]
+    total: int
+    page: int
+    per_page: int
+
+
+class OfferCountsResponse(BaseModel):
+    """Per-estado offer counts for a user (drives filter chips + badges)."""
+
+    counts: dict[str, int]
+    total: int
+
+
+# ---------------------------------------------------------------------------
 # History
 # ---------------------------------------------------------------------------
 

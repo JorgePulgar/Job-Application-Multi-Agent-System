@@ -7,25 +7,39 @@ a draft (`nueva`, `filtrada`, `descartada`, `investigada`, `evaluada`, …). Tod
 only draft-backed offers are reachable (`api/routers/drafts.py`).
 
 ## Acceptance criteria
-- [ ] New router `api/routers/offers.py` with `GET /users/{username}/offers`.
+- [x] New router `api/routers/offers.py` with `GET /users/{username}/offers`.
       Scoped to that user via `Offer.user_id` (join offers→user), newest
       `fecha_detectada` first, paginated (`page`, `page_size`, default 50, max 200).
-- [ ] Query params: `estado` (optional, one of `OfferEstado`; omitted = all),
+      _Implemented; pagination param is `per_page` (default 50, `ge=1, le=200`) to
+      match the existing drafts/history responses, not `page_size`. Order
+      `fecha_detectada.desc(), id.desc()`._
+- [x] Query params: `estado` (optional, one of `OfferEstado`; omitted = all),
       `plataforma` (optional: `adzuna`/`jooble`), free-text `q` over
       `titulo`/`empresa` (optional). Invalid `estado` ⇒ 422.
-- [ ] Response per-row: `id`, `titulo`, `empresa`, `ubicacion`,
+      _`estado` validated against `frozenset(OfferEstado)` → 422;
+      `plataforma`→`Offer.fuente`; `q`→`ilike` over titulo/empresa._
+- [x] Response per-row: `id`, `titulo`, `empresa`, `ubicacion`,
       `fuente`/`plataforma`, `url`, `fecha_publicacion`, `fecha_detectada`,
       `estado`, `razon_descarte` (when present), and `has_draft` /
       `has_evaluation` booleans so the UI can deep-link analyzed ones.
-- [ ] Companion `GET /users/{username}/offers/counts` returning a per-user
+      _`OfferListItem`; `has_draft`/`has_evaluation` computed via correlated
+      `EXISTS` subqueries (no N+1)._
+- [x] Companion `GET /users/{username}/offers/counts` returning a per-user
       `{estado: count}` map (drives the filter chips + "X sin analizar" badge).
       One grouped query, not N.
-- [ ] Reuses the existing `OfferOut` schema where possible; new list-item +
+      _`offer_counts`: single `group_by(Offer.estado)` query → `OfferCountsResponse`
+      (`counts` map + `total`)._
+- [x] Reuses the existing `OfferOut` schema where possible; new list-item +
       counts schemas added to `api/schemas.py` only for the extra fields. Router
       registered in `api/main.py`.
-- [ ] `mypy --strict` passes on touched `api/` code; router test (mocked DB)
+      _Added `OfferListItem`/`OfferListResponse`/`OfferCountsResponse`; router
+      registered after `history.router`._
+- [x] `mypy --strict` passes on touched `api/` code; router test (mocked DB)
       covering: per-user scoping (user A does not see user B's offers), `estado`
       filter, bad `estado` 422, and the counts endpoint.
+      _mypy --strict green on offers/schemas/main; `tests/integration/test_api_offers.py`
+      (7 tests, TestClient + in-memory SQLite) covers all-states list, per-user
+      scoping with a shared hash, estado filter, plataforma/flags, 422, 404, counts._
 
 ## Implementation notes
 - `Offer.user_id` (FK) + `ix_offers_user_id` + `ix_offers_estado` exist — scoping
