@@ -5,7 +5,9 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, field_validator
+
+from src.models.user_profile import ExperienceLevel, Modality
 
 
 class UserOut(BaseModel):
@@ -158,6 +160,51 @@ class RegenerateResponse(BaseModel):
     cuerpo_email: str | None
     carta_presentacion: str | None
     needs_manual_context: bool
+
+
+# ---------------------------------------------------------------------------
+# Search config (editable per-user subset of the profile YAML)
+# ---------------------------------------------------------------------------
+
+
+class LocationPreferenceIO(BaseModel):
+    """Editable location preference (modality + cities)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    modality: Modality
+    cities: list[str] = []
+
+
+class SearchConfig(BaseModel):
+    """The search-relevant, dashboard-editable subset of a user profile.
+
+    Used for both ``GET`` (current values) and ``PUT`` (update). CV, experiences,
+    education, etc. are intentionally excluded — they are never editable here.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    target_roles: list[str]
+    target_sectors: list[str] = []
+    experience_level: ExperienceLevel | None = None
+    location_preference: LocationPreferenceIO
+    min_salary: int | None = None
+
+    @field_validator("target_roles")
+    @classmethod
+    def _roles_non_empty(cls, v: list[str]) -> list[str]:
+        cleaned = [r for r in (s.strip() for s in v) if r]
+        if not cleaned:
+            raise ValueError("target_roles must contain at least one role")
+        return cleaned
+
+    @field_validator("min_salary")
+    @classmethod
+    def _salary_positive(cls, v: int | None) -> int | None:
+        if v is not None and v <= 0:
+            raise ValueError("min_salary must be a positive integer")
+        return v
 
 
 # ---------------------------------------------------------------------------
