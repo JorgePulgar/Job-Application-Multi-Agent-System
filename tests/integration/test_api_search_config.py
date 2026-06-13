@@ -114,3 +114,47 @@ def test_unknown_user_404(client: TestClient) -> None:
     assert client.get("/users/nobody/search-config").status_code == 404
     body = {"target_roles": ["X"], "location_preference": {"modality": "remote", "cities": []}}
     assert client.put("/users/nobody/search-config", json=body).status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Full profile PUT
+# ---------------------------------------------------------------------------
+
+
+def test_put_full_profile_round_trip_and_erase(client: TestClient, profiles_dir: Path) -> None:
+    body = {
+        **_FULL_PROFILE,
+        "phone": None,  # erase optional field
+        "tech_stack": [],  # erase list
+        "min_salary": None,
+        "cv_summary": "Nuevo resumen.",
+        "experiences": [],  # erase array
+    }
+    resp = client.put("/users/jorge/profile", json=body)
+    assert resp.status_code == 200
+
+    raw = _read(profiles_dir)
+    assert raw["phone"] is None
+    assert raw["tech_stack"] == []
+    assert raw["min_salary"] is None
+    assert raw["cv_summary"] == "Nuevo resumen."
+    assert raw["experiences"] == []
+
+
+def test_put_full_profile_locks_username(client: TestClient, profiles_dir: Path) -> None:
+    body = {**_FULL_PROFILE, "username": "someone_else"}
+    resp = client.put("/users/jorge/profile", json=body)
+    assert resp.status_code == 200
+    assert _read(profiles_dir)["username"] == "jorge"  # path wins
+
+
+def test_put_full_profile_invalid_email_422(client: TestClient, profiles_dir: Path) -> None:
+    before = _read(profiles_dir)
+    body = {**_FULL_PROFILE, "email": "not-an-email"}
+    resp = client.put("/users/jorge/profile", json=body)
+    assert resp.status_code == 422
+    assert _read(profiles_dir) == before  # untouched
+
+
+def test_put_full_profile_unknown_user_404(client: TestClient) -> None:
+    assert client.put("/users/nobody/profile", json=_FULL_PROFILE).status_code == 404

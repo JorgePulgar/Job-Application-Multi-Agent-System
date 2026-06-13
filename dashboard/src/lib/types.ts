@@ -50,6 +50,50 @@ export interface LocationPreferenceIO {
   cities: string[];
 }
 
+export interface ExperienceEntry {
+  company: string;
+  role: string;
+  start_date: string;
+  end_date: string | null;
+  achievements: string[];
+  technologies: string[];
+}
+
+export interface EducationEntry {
+  institution: string;
+  degree: string;
+  start_date: string;
+  end_date: string | null;
+}
+
+export interface CertificationEntry {
+  name: string;
+  issuer: string;
+  date: string;
+}
+
+export interface UserProfileFull {
+  username: string;
+  nombre: string;
+  email: string;
+  phone: string | null;
+  github_url: string | null;
+  linkedin_url: string | null;
+  location: string;
+  target_roles: string[];
+  target_sectors: string[];
+  tech_stack: string[];
+  languages: string[];
+  min_salary: number | null;
+  experience_level: string | null;
+  location_preference: LocationPreferenceIO;
+  red_flags: string[];
+  cv_summary: string;
+  experiences: ExperienceEntry[];
+  education: EducationEntry[];
+  certifications: CertificationEntry[];
+}
+
 export interface SearchConfig {
   target_roles: string[];
   target_sectors: string[];

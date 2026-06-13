@@ -12,6 +12,7 @@ import type {
   RegenerateResponse,
   SearchConfig,
   UserOut,
+  UserProfileFull,
 } from "./types";
 
 const BASE_URL =
@@ -174,6 +175,20 @@ export function getHistory(
 
 export function getProfile(username: string): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>(`/users/${username}/profile`);
+}
+
+export function getProfileFull(username: string): Promise<UserProfileFull> {
+  return request<UserProfileFull>(`/users/${username}/profile`);
+}
+
+export function putProfile(
+  username: string,
+  body: UserProfileFull,
+): Promise<UserProfileFull> {
+  return request<UserProfileFull>(`/users/${username}/profile`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
 }
 
 export function getSearchConfig(username: string): Promise<SearchConfig> {

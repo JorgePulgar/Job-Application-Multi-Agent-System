@@ -32,6 +32,20 @@ location, min salary) without touching YAML by hand. Backed by Task 06's API.
       _Reuses shadcn `Card`/`Input`/`Button`/`Badge`; `pnpm tsc --noEmit` + `pnpm
       lint` clean._
 
+## Post-task extension (2026-06-13, user request)
+Scope widened from the search-config subset to **full profile editing**: every
+field is editable and erasable except `username` (locked — it is the YAML file
+name + `users` PK + offer FK; renaming is a separate, riskier task).
+- API: added `PUT /users/{username}/profile` (full `UserProfile`, validated,
+  atomic write, username forced to the path). `GET /profile` unchanged.
+- UI: `ProfileForm` (full editor with array editors for experiences / education /
+  certifications) replaces `SearchConfigForm` in the settings page;
+  `search-config-form.tsx` removed. The `GET/PUT /search-config` API endpoints +
+  tests remain as a narrow programmatic surface.
+- Tests: 4 added in `test_api_search_config.py` (round-trip + erase, username
+  lock, invalid email 422, 404). `email`/`nombre`/`location` are required by
+  validation, so they can be changed but not blanked.
+
 ## Implementation notes
 - Today the page renders the raw YAML JSON from `GET /users/{username}/profile`
   (read-only). Replace that with the structured form bound to the new

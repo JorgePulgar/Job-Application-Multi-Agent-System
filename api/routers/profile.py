@@ -42,8 +42,23 @@ def _load_raw(path: Path) -> dict[str, Any]:
 
 @router.get("/{username}/profile", response_model=dict[str, Any])
 def get_profile(username: str, profiles_dir: ProfilesDir) -> dict[str, Any]:
-    """Return the raw YAML profile as JSON (read-only)."""
+    """Return the raw YAML profile as JSON."""
     return _load_raw(_profile_path(username, profiles_dir))
+
+
+@router.put("/{username}/profile", response_model=dict[str, Any])
+def put_profile(username: str, body: UserProfile, profiles_dir: ProfilesDir) -> dict[str, Any]:
+    """Replace the whole profile YAML (every field except ``username``).
+
+    The body is validated as a full ``UserProfile``. ``username`` is the profile's
+    identity (file name + DB key + offer FKs), so it is forced to the path value
+    and never taken from the body. Written atomically.
+    """
+    path = _profile_path(username, profiles_dir)
+    data = body.model_dump(mode="json")  # enums → str for YAML friendliness
+    data["username"] = username  # identity is locked to the path
+    _atomic_write_yaml(path, data)
+    return data
 
 
 @router.get("/{username}/search-config", response_model=SearchConfig)

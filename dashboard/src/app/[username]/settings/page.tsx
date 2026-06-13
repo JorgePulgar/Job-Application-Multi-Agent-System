@@ -1,96 +1,69 @@
-import { SearchConfigForm } from "@/components/search-config-form";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getProfile, getSearchConfig } from "@/lib/api";
-import type { SearchConfig } from "@/lib/types";
+import { ProfileForm } from "@/components/profile-form";
+import { getProfile } from "@/lib/api";
+import type {
+  CertificationEntry,
+  EducationEntry,
+  ExperienceEntry,
+  LocationPreferenceIO,
+  UserProfileFull,
+} from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-interface Experience {
-  company?: string;
-  role?: string;
-  start_date?: string;
-  end_date?: string | null;
-  achievements?: string[];
-  technologies?: string[];
-}
+type RawProfile = Partial<Omit<UserProfileFull, "location_preference">> & {
+  location_preference?: Partial<LocationPreferenceIO>;
+};
 
-interface Education {
-  institution?: string;
-  degree?: string;
-  start_date?: string;
-  end_date?: string | null;
-}
-
-interface Certification {
-  name?: string;
-  issuer?: string;
-  date?: string;
-}
-
-interface LocationPreference {
-  modality?: string;
-  cities?: string[];
-}
-
-interface Profile {
-  nombre?: string;
-  email?: string;
-  phone?: string;
-  location?: string;
-  github_url?: string;
-  linkedin_url?: string;
-  target_roles?: string[];
-  target_sectors?: string[];
-  tech_stack?: string[];
-  languages?: string[];
-  min_salary?: number;
-  location_preference?: LocationPreference;
-  red_flags?: string[];
-  cv_summary?: string;
-  experiences?: Experience[];
-  education?: Education[];
-  certifications?: Certification[];
-}
-
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3 text-sm">{children}</CardContent>
-    </Card>
-  );
-}
-
-function Field({ label, value }: { label: string; value?: string | number }) {
-  if (value === undefined || value === "") return null;
-  return (
-    <div>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="break-words">{value}</dd>
-    </div>
-  );
-}
-
-function Chips({ items }: { items?: string[] }) {
-  if (!items?.length) return <span className="text-muted-foreground">—</span>;
-  return (
-    <div className="flex flex-wrap gap-1">
-      {items.map((it) => (
-        <Badge key={it} variant="outline">
-          {it}
-        </Badge>
-      ))}
-    </div>
-  );
+/** Fill in defaults for any optional keys missing from the stored YAML. */
+function normalize(raw: Record<string, unknown>, username: string): UserProfileFull {
+  const r = raw as RawProfile;
+  const loc = r.location_preference ?? {};
+  return {
+    username: r.username ?? username,
+    nombre: r.nombre ?? "",
+    email: r.email ?? "",
+    phone: r.phone ?? null,
+    github_url: r.github_url ?? null,
+    linkedin_url: r.linkedin_url ?? null,
+    location: r.location ?? "",
+    target_roles: r.target_roles ?? [],
+    target_sectors: r.target_sectors ?? [],
+    tech_stack: r.tech_stack ?? [],
+    languages: r.languages ?? [],
+    min_salary: r.min_salary ?? null,
+    experience_level: r.experience_level ?? null,
+    location_preference: {
+      modality: loc.modality ?? "remote",
+      cities: loc.cities ?? [],
+    },
+    red_flags: r.red_flags ?? [],
+    cv_summary: r.cv_summary ?? "",
+    experiences: (r.experiences ?? []).map(
+      (e: Partial<ExperienceEntry>): ExperienceEntry => ({
+        company: e.company ?? "",
+        role: e.role ?? "",
+        start_date: e.start_date ?? "",
+        end_date: e.end_date ?? null,
+        achievements: e.achievements ?? [],
+        technologies: e.technologies ?? [],
+      }),
+    ),
+    education: (r.education ?? []).map(
+      (e: Partial<EducationEntry>): EducationEntry => ({
+        institution: e.institution ?? "",
+        degree: e.degree ?? "",
+        start_date: e.start_date ?? "",
+        end_date: e.end_date ?? null,
+      }),
+    ),
+    certifications: (r.certifications ?? []).map(
+      (c: Partial<CertificationEntry>): CertificationEntry => ({
+        name: c.name ?? "",
+        issuer: c.issuer ?? "",
+        date: c.date ?? "",
+      }),
+    ),
+  };
 }
 
 export default async function SettingsPage({
@@ -100,11 +73,10 @@ export default async function SettingsPage({
 }) {
   const { username } = await params;
 
-  let profile: Profile;
-  let searchConfig: SearchConfig | null = null;
+  let initial: UserProfileFull;
   try {
-    profile = (await getProfile(username)) as Profile;
-    searchConfig = await getSearchConfig(username);
+    const raw = await getProfile(username);
+    initial = normalize(raw, username);
   } catch (e) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -116,101 +88,7 @@ export default async function SettingsPage({
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">Ajustes</h1>
-
-      {searchConfig && (
-        <SearchConfigForm username={username} initial={searchConfig} />
-      )}
-
-      <Section title="Datos personales">
-        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Field label="Nombre" value={profile.nombre} />
-          <Field label="Email" value={profile.email} />
-          <Field label="Teléfono" value={profile.phone} />
-          <Field label="Ubicación" value={profile.location} />
-          <Field label="GitHub" value={profile.github_url} />
-          <Field label="LinkedIn" value={profile.linkedin_url} />
-        </dl>
-      </Section>
-
-      <Section title="Stack tecnológico">
-        <Chips items={profile.tech_stack} />
-      </Section>
-
-      <Section title="Idiomas">
-        <Chips items={profile.languages} />
-      </Section>
-
-      <Section title="Red flags">
-        <Chips items={profile.red_flags} />
-      </Section>
-
-      <Section title="Resumen CV">
-        <p className="whitespace-pre-wrap break-words">
-          {profile.cv_summary ?? "—"}
-        </p>
-      </Section>
-
-      <Section title="Experiencias">
-        {profile.experiences?.length ? (
-          profile.experiences.map((exp, i) => (
-            <div key={`${exp.company}-${i}`} className="border-b pb-3 last:border-0 last:pb-0">
-              <div className="font-medium">
-                {exp.role} — {exp.company}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {exp.start_date} – {exp.end_date ?? "actualidad"}
-              </div>
-              {exp.achievements?.length ? (
-                <ul className="mt-1 list-disc pl-5 text-muted-foreground">
-                  {exp.achievements.map((a) => (
-                    <li key={a}>{a}</li>
-                  ))}
-                </ul>
-              ) : null}
-              {exp.technologies?.length ? (
-                <div className="mt-1">
-                  <Chips items={exp.technologies} />
-                </div>
-              ) : null}
-            </div>
-          ))
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
-      </Section>
-
-      <Section title="Educación">
-        {profile.education?.length ? (
-          <ul className="flex flex-col gap-2">
-            {profile.education.map((edu, i) => (
-              <li key={`${edu.institution}-${i}`}>
-                <span className="font-medium">{edu.degree}</span> — {edu.institution}
-                <span className="text-xs text-muted-foreground">
-                  {" "}
-                  ({edu.start_date} – {edu.end_date ?? "actualidad"})
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
-      </Section>
-
-      <Section title="Certificaciones">
-        {profile.certifications?.length ? (
-          <ul className="flex flex-col gap-2">
-            {profile.certifications.map((cert, i) => (
-              <li key={`${cert.name}-${i}`}>
-                <span className="font-medium">{cert.name}</span> — {cert.issuer}
-                <span className="text-xs text-muted-foreground"> ({cert.date})</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
-      </Section>
+      <ProfileForm initial={initial} />
     </div>
   );
 }
