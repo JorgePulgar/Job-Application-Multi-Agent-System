@@ -141,20 +141,83 @@ def test_insert_run_log(session: Session) -> None:
     assert log.id is not None
 
 
-def test_hash_unico_unique_constraint(session: Session) -> None:
-    user = session.execute(text("SELECT id FROM users WHERE username='jorge'")).fetchone()
-    assert user is not None
-    duplicate_hash = "abc123def456" + "0" * 52
-    offer2 = Offer(
-        user_id=user[0],
-        titulo="Otro titulo",
-        empresa="Otra empresa",
-        fuente="jooble",
-        hash_unico=duplicate_hash,
-        estado=OfferEstado.nueva,
-        fecha_detectada=datetime.datetime.now(datetime.UTC),
+def test_offers_composite_unique_exists(session: Session) -> None:
+    inspector = inspect(session.bind)
+    uniques = {uc["name"]: uc["column_names"] for uc in inspector.get_unique_constraints("offers")}
+    assert "uq_offers_user_hash" in uniques
+    assert uniques["uq_offers_user_hash"] == ["user_id", "hash_unico"]
+
+
+def test_same_user_same_hash_rejected(session: Session) -> None:
+    """A single user cannot hold the same offer hash twice (composite unique).
+
+    Self-contained (creates its own user + first offer) so it does not depend on
+    session state left by earlier tests.
+    """
+    user = User(username="dup_user", nombre="Dup")
+    session.add(user)
+    session.flush()
+    duplicate_hash = "d" * 64
+    session.add(
+        Offer(
+            user_id=user.id,
+            titulo="ML Engineer",
+            empresa="Acme SA",
+            fuente="adzuna",
+            hash_unico=duplicate_hash,
+            estado=OfferEstado.nueva,
+            fecha_detectada=datetime.datetime.now(datetime.UTC),
+        )
     )
-    session.add(offer2)
+    session.flush()
+    session.add(
+        Offer(
+            user_id=user.id,
+            titulo="Otro titulo",
+            empresa="Otra empresa",
+            fuente="jooble",
+            hash_unico=duplicate_hash,  # same user + same hash → must fail
+            estado=OfferEstado.nueva,
+            fecha_detectada=datetime.datetime.now(datetime.UTC),
+        )
+    )
     with pytest.raises(Exception):  # noqa: B017 — SQLAlchemy raises IntegrityError subclass
         session.flush()
+    session.rollback()
+
+
+def test_same_hash_allowed_across_users(session: Session) -> None:
+    """Two different users CAN hold the same offer hash — per-user independence.
+
+    Self-contained (creates its own users) so it does not depend on session
+    state left by earlier tests.
+    """
+    user_a = User(username="user_a", nombre="A")
+    user_b = User(username="user_b", nombre="B")
+    session.add_all([user_a, user_b])
+    session.flush()
+    shared_hash = "f" * 64
+    session.add_all(
+        [
+            Offer(
+                user_id=user_a.id,
+                titulo="ML Engineer",
+                empresa="Acme SA",
+                fuente="adzuna",
+                hash_unico=shared_hash,
+                estado=OfferEstado.nueva,
+                fecha_detectada=datetime.datetime.now(datetime.UTC),
+            ),
+            Offer(
+                user_id=user_b.id,
+                titulo="ML Engineer",
+                empresa="Acme SA",
+                fuente="jooble",
+                hash_unico=shared_hash,
+                estado=OfferEstado.nueva,
+                fecha_detectada=datetime.datetime.now(datetime.UTC),
+            ),
+        ]
+    )
+    session.flush()  # both rows with the same hash must coexist
     session.rollback()

@@ -83,7 +83,7 @@ class Offer(Base):
 
     __tablename__ = "offers"
     __table_args__ = (
-        UniqueConstraint("hash_unico", name="uq_offers_hash_unico"),
+        UniqueConstraint("user_id", "hash_unico", name="uq_offers_user_hash"),
         Index("ix_offers_user_id", "user_id"),
         Index("ix_offers_estado", "estado"),
         Index("ix_offers_fecha_detectada", "fecha_detectada"),
