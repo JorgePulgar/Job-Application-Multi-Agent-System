@@ -6,20 +6,20 @@ Phase 10.5 Langfuse traces + `usage_tracker`, so Task 09 cuts cost where it
 actually is — not by guesswork. **Analysis + reporting only; no behavior changes.**
 
 ## Acceptance criteria
-- [ ] Report committed as
+- [x] Report committed as
       `tasks/phase-10.6-offers-experience-cost/COST-BASELINE.md` covering, for a
       representative eval/sample run: total cost, cost & tokens **per graph node**
       (ingest / research_company / extract_sponsorship / match_profile /
       assess_fit / gather_more / draft_cover_letter), and cost per offer
       end-to-end.
-- [ ] Prompt-cache effectiveness reported: cache-hit ratio on the stable system
+- [x] Prompt-cache effectiveness reported: cache-hit ratio on the stable system
       messages + user CV (what CLAUDE.md §4 requires cached). Flag any node where
       caching is silently NOT hitting.
-- [ ] Model-routing audit: confirm each node's deployment (`gpt-4o-mini` vs
+- [x] Model-routing audit: confirm each node's deployment (`gpt-4o-mini` vs
       `gpt-4o`) and flag any mechanical node wrongly on `gpt-4o` or vice-versa.
-- [ ] Confidence-loop (`gather_more`, max 2) cost quantified: how often it fires +
+- [x] Confidence-loop (`gather_more`, max 2) cost quantified: how often it fires +
       marginal cost — candidate for trimming.
-- [ ] Report ends with a ranked list of concrete optimization candidates (highest
+- [x] Report ends with a ranked list of concrete optimization candidates (highest
       €/offer saving first), each tagged feasible / risky-to-quality. This list is
       the input contract for Task 09.
 
