@@ -155,3 +155,66 @@ Highest $/offer saving first. "Guard" = must not regress the eval baseline
 **Stack rank if quality holds: loop trim → draft regen → match-profile model →
 match-profile cache.** Address research cold cost (gap #1) as a measurement task
 before any research-node change.
+
+---
+
+# Task 09 — Applied cuts + re-measure
+
+Before = baseline run `eval-20260612T073850Z` (above). After = `eval-20260617T163627Z`
+(shipped state). Same 9-offer dataset, same warm company cache, judge excluded.
+
+## Quality (eval guardrail) — improved or held
+
+| Score | Before | After | Tolerance | Verdict |
+| --- | --- | --- | --- | --- |
+| verdict_agreement | 0.556 | **0.611** | ≥ 0.50 | ✓ up |
+| faithfulness | 0.922 | **0.961** | ≥ 0.88 | ✓ up |
+| specificity | 1.000 | **1.000** | = 1.00 (gate) | ✓ held |
+
+No regression — every score rose or held. The shippable-draft / `needs_manual_context`
+path is unchanged.
+
+## Cost — net −16.0%
+
+| Node | Before $ | After $ | Δ |
+| --- | ---: | ---: | --- |
+| ingest_offer (mini) | 0.00185 | 0.00117 | −37% (warm cache) |
+| research_company | 0.00000 | 0.00000 | — (cache-warm both runs) |
+| extract_sponsorship (mini) | 0.00133 | 0.00132 | flat |
+| `match_profile` 4o→**mini** | 0.03170 | **0.00138** | **−95.6%** ✅ |
+| `assess_fit` (loop 2→**1**) | 0.08859 | **0.06299** | **−28.9%** ✅ (24→18 calls) |
+| draft_cover_letter | 0.07654 | 0.10117 | +32% ⚠ (see below) |
+| **GRAPH TOTAL** | **0.20002** | **0.16803** | **−16.0%** |
+| **Cost / offer** | **$0.0222** | **$0.0187** | **−15.9%** |
+
+(USD; EUR ≈ × 0.92.)
+
+## What shipped vs what was reverted
+
+| Candidate | Outcome |
+| --- | --- |
+| **#1 Trim confidence loop** (`MAX_LOOPS` 2→1, `route.py`) | **SHIPPED.** `gather_more` fires 15→9; `assess_fit` 24→18 calls; −$0.026 / 9 offers. Verdict_agreement rose, so the dropped 2nd loop was not adding verdict value. |
+| **#4 `match_profile` → gpt-4o-mini** | **SHIPPED.** −95.6% on the node, no quality loss (verdict + faithfulness both up). |
+| **#3 Draft ban-list sync** (prompt) | **REVERTED.** The re-run showed **every** draft regen was a *specificity* failure ("no cita dato concreto del dossier"), **zero** prohibited-word failures — so syncing the ban-list addressed a non-problem and only added input tokens. Reverted; prompt restored verbatim. |
+| **#2 `match_profile` cache fix** | **NOT SHIPPED — superseded by #4.** Root cause confirmed: `match_profile` runs once/offer and its only cross-offer stable prefix is the 707-tok system, under Azure's 1024-tok cache floor (assess_fit/draft cache only because they *repeat within an offer*). A prefix-padding fix would add tokens to a node #4 just made cheap on mini, so it is counterproductive. Documented, not implemented. |
+
+## Caveats on the numbers
+
+- **`draft_cover_letter` rose (+32%)** and is now the largest node. It is *not* a
+  Task-08 target that backfired — it is stochastic specificity-driven regeneration
+  (draft calls drifted 17→20→23 across three back-to-back gpt-4o runs, independent
+  of the reverted prompt change). A couple of offers (e.g. 110, manual-context in
+  both runs) exhaust the 3-attempt cap. This partly offsets the loop/mini savings
+  yet the net is still −16%. **Draft specificity-regen is the top remaining cost
+  target** — and is *not* addressable by a ban-list prompt tweak.
+- The after-run's mini-node cache hits (ingest, match_profile) are largely
+  **warm-cache artifacts** of three eval runs minutes apart; a cold daily run would
+  not see them. The match→mini saving is the model price, not caching, so it holds.
+- Research cold cost (baseline gap #1) is still unmeasured — both runs hit the warm
+  company cache. Unchanged by this task.
+
+## Net
+
+Two shipped changes cut measured graph cost **16.0%** ($0.0222→$0.0187/offer) with
+**no quality regression** (all three scores up or held). One candidate (#3) was
+reverted for failing to save; one (#2) was subsumed by #4 and documented.

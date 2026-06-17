@@ -6,21 +6,21 @@ Implement the optimization candidates ranked highest in Task 08 and prove they c
 guardrail.
 
 ## Acceptance criteria
-- [ ] Each change is one of the Task 08 candidates (no speculative optimizations
+- [x] Each change is one of the Task 08 candidates (no speculative optimizations
       outside that list). Likely set, subject to the report: fix any prompt-cache
       miss on system message + CV; correct any node on the wrong deployment
       (`gpt-4o` → `gpt-4o-mini` where reasoning is mechanical); trim research
       fan-out / `gather_more` where the report shows poor cost/value.
-- [ ] Behavior preserved: prompts still load from `src/prompts/*.md`, LLM calls
+- [x] Behavior preserved: prompts still load from `src/prompts/*.md`, LLM calls
       stay in `src/services/`, prohibited-words + specificity checks still run,
       `needs_manual_context` path intact. No prompt text moved inline.
-- [ ] Re-run the eval dataset before vs after: record new €/offer and
+- [x] Re-run the eval dataset before vs after: record new €/offer and
       faithfulness/quality scores. Quality must not drop below baseline within a
       stated tolerance. Append before/after numbers to `COST-BASELINE.md`.
-- [ ] Net measured cost reduction reported (a real, stated % — even modest — not
+- [x] Net measured cost reduction reported (a real, stated % — even modest — not
       "should be cheaper"). A candidate that fails to save or hurts quality is
       reverted and noted.
-- [ ] `mypy --strict` + `ruff` pass on touched code; existing graph/agent unit +
+- [x] `mypy --strict` + `ruff` pass on touched code; existing graph/agent unit +
       integration tests stay green.
 
 ## Implementation notes

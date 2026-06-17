@@ -168,7 +168,8 @@ async def test_match_profile_reads_yaml_not_memory(monkeypatch: pytest.MonkeyPat
 
     assert loaded_for["username"] == "jorge"
     assert out["requirements"].gaps == ["k8s"]
-    assert client.calls[0]["deployment"] == "4o"
+    # Phase 10.6 Task 09: mechanical requirement matching runs on gpt-4o-mini.
+    assert client.calls[0]["deployment"] == "mini"
     assert "CV_MARKER" in client.calls[0]["system"]
 
 

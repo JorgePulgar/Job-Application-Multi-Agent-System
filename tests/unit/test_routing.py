@@ -84,9 +84,10 @@ def test_missing_info_loop0_routes_to_gather_more() -> None:
     assert route_on_confidence(state) == ROUTE_GATHER_MORE
 
 
-def test_missing_info_loop1_still_gathers() -> None:
+def test_missing_info_loop1_routes_to_human_review() -> None:
+    # Cap is 1 (Phase 10.6 Task 09): a single gather pass, then proceed.
     state: Any = {"fit": _fit(missing_info=["salario"]), "loop_count": 1}
-    assert route_on_confidence(state) == ROUTE_GATHER_MORE
+    assert route_on_confidence(state) == ROUTE_HUMAN_REVIEW
 
 
 def test_missing_info_loop2_routes_to_human_review() -> None:
@@ -150,8 +151,8 @@ async def test_loop_terminates_within_cap(monkeypatch: pytest.MonkeyPatch) -> No
     passes = 0
     while route_on_confidence(state) == ROUTE_GATHER_MORE:
         passes += 1
-        assert passes <= 2  # cap is firm; cannot spin
+        assert passes <= 1  # cap is firm (1); cannot spin
         state.update(await node(state))
 
     assert route_on_confidence(state) == ROUTE_HUMAN_REVIEW
-    assert passes == 2
+    assert passes == 1

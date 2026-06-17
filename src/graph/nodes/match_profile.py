@@ -1,9 +1,11 @@
 """``match_profile`` fan-out branch: requirement-by-requirement profile match.
 
-Uses ``gpt-4o`` to map each required/preferred skill to met/partial/missing
+Uses ``gpt-4o-mini`` to map each required/preferred skill to met/partial/missing
 against the user's YAML profile (NOT Claude memory), and to surface
-``standout_points`` and ``gaps``. The CV lives in the cacheable system prompt so
-repeated offers for the same user reuse the cached prefix.
+``standout_points`` and ``gaps``. Phase 10.6 Task 09 moved this node from
+``gpt-4o`` to ``gpt-4o-mini``: the cost baseline (COST-BASELINE.md) showed it was
+16% of graph cost while doing mechanical requirement-by-requirement matching, and
+the eval set guards that the verdict it feeds does not regress.
 """
 
 from __future__ import annotations
@@ -38,7 +40,7 @@ def make_match_profile(client: AzureOpenAIClient) -> MatchProfileNode:
     the existing loader.
 
     Args:
-        client: Azure OpenAI client used for the gpt-4o call.
+        client: Azure OpenAI client used for the gpt-4o-mini call.
 
     Returns:
         The ``match_profile`` coroutine LangGraph invokes.
@@ -71,7 +73,7 @@ def make_match_profile(client: AzureOpenAIClient) -> MatchProfileNode:
         )
 
         result = await client.chat(
-            deployment="4o",
+            deployment="mini",
             system=system,
             user=user,
             response_format=RequirementMatch,

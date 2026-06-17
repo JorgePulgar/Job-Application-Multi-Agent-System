@@ -8,8 +8,10 @@ from __future__ import annotations
 
 from src.graph.state import EvaluateDraftState
 
-# Firm cap on confidence-loop passes (mirrors the v1 max-2-regen rule).
-MAX_LOOPS = 2
+# Firm cap on confidence-loop passes. Lowered 2 -> 1 in Phase 10.6 Task 09: the
+# cost baseline (COST-BASELINE.md) showed 8/9 offers maxed the loop while it was
+# the dominant cost driver, so a single extra-research pass is allowed, not two.
+MAX_LOOPS = 1
 
 # Route targets returned to ``add_conditional_edges`` in build.py.
 ROUTE_END = "end"
